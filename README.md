@@ -2,7 +2,7 @@
 
 A research project investigating how semantic language cues improve segmentation quality and uncertainty interpretability in medical image segmentation.
 
-## 📋 Table of Contents
+## Table of Contents
 
 1. [Project Overview](#project-overview)
 2. [Installation](#installation)
@@ -14,7 +14,7 @@ A research project investigating how semantic language cues improve segmentation
 
 ---
 
-## 🎯 Project Overview
+## Project Overview
 
 ### Research Claim
 
@@ -43,7 +43,7 @@ A research project investigating how semantic language cues improve segmentation
 
 ---
 
-## 🔧 Installation
+## Installation
 
 ### Step 1: Clone and Setup Environment
 
@@ -58,6 +58,10 @@ source venv/bin/activate  # Linux/Mac
 # OR
 venv\Scripts\activate     # Windows
 
+# Optional: For CUDA acceleration
+# torch with CUDA - install separately based on your CUDA version
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+
 # Install dependencies
 pip install -r requirements.txt
 ```
@@ -66,6 +70,11 @@ pip install -r requirements.txt
 
 ```bash
 python -c "from src.models import VLSegmentationModel; print('✓ Installation successful!')"
+```
+For Complete Check
+
+```bash
+python quick_start.py --data_root ./data/sun --check_only    
 ```
 
 ---
@@ -77,9 +86,9 @@ vl_polyp_segmentation/
 │
 ├── README.md                       # This file
 ├── requirements.txt                # Python dependencies
-├── setup.py                        # Package setup (optional)
+├── setup.py                        # Package setup
 │
-├── configs/                        # Configuration files
+├── configs/                       # Configuration files (Currently all configurations exist in src/config.py Apply this approach later)
 │   ├── default.yaml               # Default hyperparameters
 │   ├── vision_only.yaml           # Vision-only baseline
 │   ├── full_vl.yaml               # Full VL model
@@ -130,7 +139,7 @@ vl_polyp_segmentation/
 │       ├── __init__.py
 │       └── uncertainty_metrics.py # URS, SAS, ECE
 │
-├── scripts/                        # Utility scripts
+├── scripts/                       # Utility scripts
 │   ├── download_data.sh           # Download benchmark datasets
 │   ├── run_all_experiments.sh     # Run all experiments
 │   └── generate_figures.py        # Generate paper figures
@@ -153,7 +162,7 @@ vl_polyp_segmentation/
 
 ---
 
-## 📊 Data Preparation
+## Data Preparation
 
 ### Primary Dataset: SUN Database
 
@@ -210,7 +219,7 @@ data/cvc_clinicdb/
 
 ---
 
-## 🚀 Running Experiments
+## Running Experiments
 
 ### Quick Start (Single Command)
 
@@ -232,7 +241,7 @@ python -m src.train \
     --output_dir ./checkpoints/vision_only
 ```
 
-**Expected time:** ~2-4 hours on single GPU
+**Expected time:** ~5-6 hours on single GPU
 
 #### Step 2: Train Full VL Model
 
@@ -306,26 +315,26 @@ python -m src.evaluate_benchmarks \
 
 ---
 
-## 📈 Expected Results
+## Expected Results
 
 ### Table 1: Main Results on SUN Database
 
 | Model | Dice ↑ | IoU ↑ | URS ↑ | SAS | ECE ↓ |
 |-------|--------|-------|-------|-----|-------|
-| Vision-Only | ~0.84 | ~0.74 | - | ~0.31 | ~0.12 |
+<!-- | Vision-Only | ~0.84 | ~0.74 | - | ~0.31 | ~0.12 |
 | VL (Shape) | ~0.85 | ~0.75 | ~0.08 | ~0.34 | ~0.11 |
 | VL (Size) | ~0.85 | ~0.75 | ~0.06 | ~0.33 | ~0.11 |
 | VL (Location) | ~0.84 | ~0.74 | ~0.03 | ~0.32 | ~0.11 |
 | VL (Pathology) | ~0.85 | ~0.75 | ~0.05 | ~0.33 | ~0.10 |
-| **VL (Full)** | **~0.87** | **~0.78** | **~0.15** | **~0.42** | **~0.08** |
+| **VL (Full)** | **~0.87** | **~0.78** | **~0.15** | **~0.42** | **~0.08** | -->
 
 ### Table 2: Cross-Dataset Generalization
 
 | Train → Test | Dice | IoU |
 |--------------|------|-----|
-| SUN → SUN | ~0.87 | ~0.78 |
+<!-- | SUN → SUN | ~0.87 | ~0.78 |
 | SUN → Kvasir-SEG | ~0.80 | ~0.70 |
-| SUN → CVC-ClinicDB | ~0.78 | ~0.68 |
+| SUN → CVC-ClinicDB | ~0.78 | ~0.68 | -->
 
 ### Generated Figures
 
@@ -339,7 +348,7 @@ After evaluation, find these in `results/`:
 
 ---
 
-## 🔬 Experiment Configurations
+## Experiment Configurations
 
 ### Available Experiments
 
@@ -365,41 +374,9 @@ After evaluation, find these in `results/`:
 
 ---
 
-## 🐛 Troubleshooting
 
-### Common Issues
 
-**1. CUDA Out of Memory**
-```bash
-# Reduce batch size
-python -m src.train --batch_size 4 ...
-
-# Or use smaller image size
-python -m src.train --image_size 224 ...
-```
-
-**2. PubMedBERT Download Fails**
-```bash
-# Pre-download the model
-python -c "from transformers import AutoModel; AutoModel.from_pretrained('microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract')"
-```
-
-**3. Dataset Not Found**
-```bash
-# Check data directory structure
-ls -la ./data/sun/positive/case1/
-# Should show: images/ masks/
-```
-
-**4. Import Errors**
-```bash
-# Install package in development mode
-pip install -e .
-```
-
----
-
-## 📝 Citation
+<!-- ## Citation
 
 If you use this code in your research, please cite:
 
@@ -407,13 +384,13 @@ If you use this code in your research, please cite:
 @article{your_name_2024,
   title={Semantic Language Cues Improve Segmentation Quality and 
          Uncertainty Interpretability in Medical Image Segmentation},
-  author={Your Name},
+  author={Saaim Siddiqui},
   journal={Conference/Journal Name},
-  year={2024}
+  year={2026}
 }
-```
+``` -->
 
-Also cite the SUN Database:
+<!-- Also cite the SUN Database:
 ```bibtex
 @article{misawa2021sun,
   title={Development of a computer-aided detection system for colonoscopy 
@@ -421,14 +398,14 @@ Also cite the SUN Database:
   author={Misawa, Masashi and others},
   journal={Gastrointestinal Endoscopy},
   year={2021}
-}
+} -->
 ```
 
 ---
 
-## 📧 Contact
+## Contact
 
-For questions about this implementation, please open an issue or contact [your email].
+For questions about this implementation, please open an issue or contact saaimsiddiqui234@gmail.com.
 
 ---
 
