@@ -28,9 +28,7 @@ class SUNPolypDataset(Dataset):
     """
     Dataset for SUN Colonoscopy Video Database with flexible balancing.
     """
-    
-    # [Previous metadata and init code stays the same - abbreviated for clarity]
-    
+        
     def __init__(
         self,
         data_root: str,

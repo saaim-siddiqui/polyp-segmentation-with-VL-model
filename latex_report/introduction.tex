@@ -1,0 +1,56 @@
+%!TEX root = thesis.tex
+
+\chapter{Introduction}
+\label{ch:introduction}
+
+\section{Motivation}
+\label{sec:intro:motivation}
+
+\ac{CRC} is the third most commonly diagnosed cancer and the second leading cause of cancer-related mortality worldwide~\cite{sung2021global}. The detection and removal of precancerous polyps during colonoscopy has been shown to significantly reduce \ac{CRC} incidence and mortality~\cite{zauber2012colonoscopic}. However, the polyp miss rate during routine colonoscopy remains alarmingly high, with studies reporting that up to 26\% of polyps may be overlooked~\cite{kim2017miss}. This motivates the development of computer-aided detection and segmentation systems that can assist endoscopists in identifying and delineating polyps in real time.
+
+Deep learning approaches based on \acp{CNN} have achieved considerable success in automated polyp segmentation~\cite{fan2020pranet, jha2020doubleunet, zhou2018unetplusplus}. However, these purely vision-based models treat segmentation as an isolated pixel classification task, ignoring the rich clinical context that endoscopists routinely leverage---such as polyp morphology (pedunculated vs.\ sessile), size, anatomical location, and surface characteristics. This gap between algorithmic processing and clinical reasoning limits both the accuracy and interpretability of existing systems.
+
+\section{Problem Statement}
+\label{sec:intro:problem}
+
+This Praktikum investigates the hypothesis that \textbf{semantic language cues improve both segmentation quality and interpretability of uncertainty in medical image segmentation}. Specifically, we address three research questions:
+
+\begin{enumerate}
+	\item Does integrating structured clinical text descriptions with visual features improve polyp segmentation accuracy compared to a vision-only baseline?
+	\item Can language-guided models produce better-calibrated uncertainty estimates, particularly in clinically relevant regions such as polyp boundaries?
+	\item Which clinical attributes (shape, size, location, pathology) contribute most significantly to segmentation improvement?
+\end{enumerate}
+
+\section{Contributions}
+\label{sec:intro:contributions}
+
+The main contributions of this work are:
+
+\begin{itemize}
+	\item \textbf{A modular \ac{VL} segmentation framework} that combines a \ac{ResNet}-34 vision encoder with a frozen \ac{PubMedBERT} text encoder through cross-attention fusion, enabling integration of structured clinical descriptions into the segmentation pipeline.
+	
+	\item \textbf{A structured caption generation system} based on the Paris Classification that automatically generates clinically grounded textual descriptions from polyp metadata (morphology, size, location, and surface characteristics).
+	
+	\item \textbf{Three novel uncertainty evaluation metrics}:
+	\begin{itemize}
+		\item \ac{URS}: Quantifies the reduction in predictive uncertainty when language cues are incorporated.
+		\item \ac{SAS}: Measures the correlation between text-derived semantic similarity and spatial uncertainty patterns.
+		\item \ac{AC-ECE}: Evaluates calibration quality conditioned on specific clinical attributes.
+	\end{itemize}
+	
+	\item \textbf{A comprehensive ablation study} across six experimental configurations that isolates the contribution of individual clinical attributes to segmentation quality and uncertainty estimation.
+\end{itemize}
+
+\section{Report Structure}
+\label{sec:intro:structure}
+
+The remainder of this report is organized as follows:
+
+\begin{itemize}
+	\item \textbf{Chapter~\ref{ch:background}} provides the necessary background on medical image segmentation, vision-language models, and uncertainty estimation.
+	\item \textbf{Chapter~\ref{ch:relatedwork}} reviews related work in polyp segmentation, vision-language medical imaging, and uncertainty quantification.
+	\item \textbf{Chapter~\ref{ch:approach}} details the proposed architecture including the vision encoder, text encoder, fusion mechanisms, decoder, and uncertainty estimation framework.
+	\item \textbf{Chapter~\ref{ch:implementation}} describes the software implementation, data pipeline, and training procedure.
+	\item \textbf{Chapter~\ref{ch:evaluation}} presents the experimental setup, evaluation metrics, and results.
+	\item \textbf{Chapter~\ref{ch:conclusion}} summarizes the findings and discusses future work.
+\end{itemize}

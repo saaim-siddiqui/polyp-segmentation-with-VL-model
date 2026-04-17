@@ -1,0 +1,257 @@
+%!TEX root = thesis.tex
+
+\chapter{Approach}
+\label{ch:approach}
+
+This chapter presents the proposed \ac{VL} segmentation architecture. Figure~\ref{fig:architecture} provides an overview of the complete pipeline.
+
+\begin{figure}[htbp]
+	\centering
+	\fbox{\parbox{0.9\textwidth}{\centering\vspace{2cm}\textbf{[Architecture Diagram Placeholder]}\\Input Image $\rightarrow$ Vision Encoder $\rightarrow$ Fusion $\leftarrow$ Text Encoder $\rightarrow$ Decoder $\rightarrow$ Segmentation Mask + Uncertainty Map\vspace{2cm}}}
+	\caption[Overall architecture of the VL segmentation framework.]{Overall architecture of the proposed vision-language segmentation framework. The vision encoder extracts multi-scale features from the input colonoscopy image. The text encoder processes structured clinical captions generated from polyp metadata. Cross-attention fusion integrates both modalities before the decoder produces the segmentation mask and uncertainty estimates via MC~Dropout.}
+	\label{fig:architecture}
+\end{figure}
+
+
+\section{Vision Encoder}
+\label{sec:approach:vision}
+
+The vision encoder is responsible for extracting a hierarchy of visual features from the input colonoscopy image $\mathbf{x} \in \mathbb{R}^{3 \times H \times W}$.
+
+\subsection{Backbone Architecture}
+\label{sec:approach:backbone}
+
+We employ \ac{ResNet}-34~\cite{he2016deep} pretrained on ImageNet~\cite{deng2009imagenet} as the backbone. The encoder is decomposed into five stages following the standard ResNet grouping:
+
+\begin{table}[htbp]
+	\caption{Vision encoder feature hierarchy. Each stage produces feature maps at progressively lower spatial resolution and higher channel dimensionality.}
+	\label{tab:encoder_stages}
+	\centering
+	\begin{tabular}{lccl}
+		\toprule
+		\textbf{Stage} & \textbf{Output Channels} & \textbf{Spatial Scale} & \textbf{ResNet Layers} \\
+		\midrule
+		Stage 0 & 64  & $H/2 \times W/2$   & Conv1, BN, ReLU \\
+		Stage 1 & 64  & $H/4 \times W/4$   & MaxPool, Layer1 \\
+		Stage 2 & 128 & $H/8 \times W/8$   & Layer2 \\
+		Stage 3 & 256 & $H/16 \times W/16$ & Layer3 \\
+		Stage 4 & 512 & $H/32 \times W/32$ & Layer4 \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\subsection{Bottleneck Projection}
+\label{sec:approach:bottleneck}
+
+The deepest feature map (Stage~4, 512 channels) is projected to the model dimension $D = 256$ via a $1 \times 1$ convolution followed by batch normalization and ReLU:
+\begin{equation}
+	\mathbf{v}_{\text{proj}} = \text{ReLU}\left(\text{BN}\left(W_{\text{proj}} \ast \mathbf{v}_{\text{stage4}}\right)\right) \in \mathbb{R}^{D \times \frac{H}{32} \times \frac{W}{32}}
+\end{equation}
+This projection serves two purposes: dimensionality reduction for computational efficiency, and alignment with the text embedding dimension to enable cross-modal fusion.
+
+\subsection{Global Feature Pooling}
+\label{sec:approach:globalpool}
+
+A global average pooling operation extracts a compact image-level representation:
+\begin{equation}
+	\mathbf{v}_{\text{global}} = \text{GAP}(\mathbf{v}_{\text{proj}}) \in \mathbb{R}^{D}
+\end{equation}
+This global feature vector is used in the fusion module for image-level context.
+
+
+\section{Text Encoder}
+\label{sec:approach:text}
+
+The text encoder processes structured clinical descriptions and produces embeddings that complement visual features.
+
+\subsection{PubMedBERT Backbone}
+\label{sec:approach:pubmedbert}
+
+We use \ac{PubMedBERT} (\texttt{microsoft/BiomedNLP-Pub\-Med\-BERT-base-uncased-abstract})~\cite{gu2021pubmedbert}, a BERT-base model pretrained from scratch on PubMed abstracts. The model remains \textbf{frozen} during training, serving as a fixed feature extractor. This design choice is motivated by:
+
+\begin{enumerate}
+	\item Preservation of rich biomedical language understanding acquired during pretraining.
+	\item Prevention of overfitting on the relatively small polyp dataset.
+	\item Substantial reduction in trainable parameters and memory requirements.
+\end{enumerate}
+
+\subsection{Projection Heads}
+\label{sec:approach:projection}
+
+Two separate projection heads map the 768-dimensional PubMedBERT outputs to the model dimension $D = 256$:
+
+\begin{itemize}
+	\item \textbf{Sequence projection}: Maps the full token sequence $\mathbf{H} \in \mathbb{R}^{N \times 768}$ to $\mathbf{H}_{\text{proj}} \in \mathbb{R}^{N \times D}$ via a two-layer MLP with GELU activation and layer normalization:
+	\begin{equation}
+		\mathbf{H}_{\text{proj}} = \text{LN}\left(W_2 \cdot \text{GELU}(W_1 \mathbf{H})\right)
+	\end{equation}
+	
+	\item \textbf{Global projection}: Maps the \texttt{[CLS]} token representation $\mathbf{h}_{\text{cls}} \in \mathbb{R}^{768}$ to $\mathbf{h}_{\text{global}} \in \mathbb{R}^{D}$ via an analogous MLP.
+\end{itemize}
+
+\subsection{Structured Caption Generation}
+\label{sec:approach:captions}
+
+A key contribution is the structured caption generation system based on the Paris Classification~\cite{paris2003paris}. Given case-level metadata, the system generates clinically grounded text descriptions organized by attribute categories:
+
+\begin{table}[htbp]
+	\caption{Structured caption templates derived from the Paris Classification system. Each attribute generates a specific component of the final caption.}
+	\label{tab:caption_templates}
+	\centering
+	\begin{tabular}{p{2.5cm}p{4cm}p{6cm}}
+		\toprule
+		\textbf{Attribute} & \textbf{Metadata Source} & \textbf{Example Caption} \\
+		\midrule
+		Shape & Paris class (Is, Ip, IIa, etc.) & ``Sessile polypoid lesion with broad-based attachment to the mucosal surface'' \\
+		Size & Polyp size in mm & ``Medium polyp measuring 5--10mm, identifiable during standard examination'' \\
+		Location & Anatomical location & ``Polyp located in the sigmoid colon, a common site for adenomatous polyps'' \\
+		Pathology & Surface pattern, color & ``Lesion displays regular surface pit pattern; reddish mucosal coloration'' \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+The caption generation system supports both \textbf{full captions} (concatenating all attribute descriptions) and \textbf{single-attribute ablations} (using only one attribute category) to enable systematic investigation of each attribute's contribution.
+
+
+\section{Vision-Language Fusion}
+\label{sec:approach:fusion}
+
+The fusion module integrates visual and textual features through learned cross-modal interactions. We implement three fusion strategies and evaluate their effectiveness.
+
+\subsection{Cross-Attention Fusion (Primary)}
+\label{sec:approach:crossattn}
+
+The primary fusion mechanism uses multi-head cross-attention~\cite{vaswani2017attention} with $h = 8$ heads and head dimension $d_k = 32$:
+
+\begin{equation}
+	Q = W_Q \cdot \mathbf{v}_{\text{flat}}, \quad K = W_K \cdot \mathbf{H}_{\text{proj}}, \quad V = W_V \cdot \mathbf{H}_{\text{proj}}
+\end{equation}
+where $\mathbf{v}_{\text{flat}} \in \mathbb{R}^{(H'W') \times D}$ is the flattened spatial feature map. The attention output is:
+\begin{equation}
+	\mathbf{A} = \text{softmax}\left(\frac{QK^\top}{\sqrt{d_k}}\right) V \in \mathbb{R}^{(H'W') \times D}
+\end{equation}
+
+A residual connection and layer normalization are applied:
+\begin{equation}
+	\mathbf{v}_{\text{fused}} = \text{LN}(\mathbf{v}_{\text{flat}} + \mathbf{A})
+\end{equation}
+
+This is followed by a position-wise feed-forward network with GELU activation:
+\begin{equation}
+	\text{FFN}(\mathbf{x}) = W_2 \cdot \text{GELU}(W_1 \mathbf{x} + b_1) + b_2
+\end{equation}
+with expansion ratio 4 (hidden dimension $= 4D = 1024$), and a final residual connection plus layer normalization.
+
+\subsection{FiLM Fusion (Alternative)}
+\label{sec:approach:film}
+
+\ac{FiLM}~\cite{perez2018film} generates channel-wise modulation parameters from the text global embedding:
+\begin{equation}
+	\gamma = W_\gamma \mathbf{h}_{\text{global}} + b_\gamma, \quad \beta = W_\beta \mathbf{h}_{\text{global}} + b_\beta
+\end{equation}
+\begin{equation}
+	\mathbf{v}_{\text{fused}} = \gamma \odot \mathbf{v} + \beta
+\end{equation}
+FiLM is computationally efficient but limited to global channel-wise modulation without spatial selectivity.
+
+\subsection{Concatenation Fusion (Baseline)}
+\label{sec:approach:concat}
+
+The simplest fusion strategy spatially broadcasts the global text embedding and concatenates it with the visual feature map along the channel dimension:
+\begin{equation}
+	\mathbf{v}_{\text{fused}} = W_{\text{reduce}} \ast [\mathbf{v}; \mathbf{h}_{\text{global}} \otimes \mathbf{1}_{H' \times W'}]
+\end{equation}
+where $W_{\text{reduce}}$ is a $1 \times 1$ convolution that reduces the concatenated channels from $2D$ back to $D$.
+
+
+\section{Segmentation Decoder}
+\label{sec:approach:decoder}
+
+The decoder follows a U-Net-style architecture with progressive upsampling and skip connections from the vision encoder.
+
+\subsection{Decoder Architecture}
+\label{sec:approach:decoder_arch}
+
+The decoder consists of four blocks, each performing:
+\begin{enumerate}
+	\item Bilinear $2\times$ upsampling of the input feature map.
+	\item Concatenation with the corresponding encoder skip connection (if available).
+	\item Two $3 \times 3$ convolutional layers, each followed by batch normalization and ReLU.
+	\item \ac{MC} Dropout (Dropout2d) for uncertainty estimation.
+\end{enumerate}
+
+\begin{table}[htbp]
+	\caption{Decoder block configuration. Skip connections from encoder stages are concatenated with the upsampled decoder features at each level.}
+	\label{tab:decoder_config}
+	\centering
+	\begin{tabular}{lcccc}
+		\toprule
+		\textbf{Block} & \textbf{Input Ch.} & \textbf{Skip Ch.} & \textbf{Output Ch.} & \textbf{Scale} \\
+		\midrule
+		Block 1 & 256  & 256 & 128 & $H/16 \rightarrow H/8$  \\
+		Block 2 & 128  & 128 & 64  & $H/8 \rightarrow H/4$   \\
+		Block 3 & 64   & 64  & 32  & $H/4 \rightarrow H/2$   \\
+		Block 4 & 32   & 64  & 32  & $H/2 \rightarrow H$     \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+The final segmentation head applies a $1 \times 1$ convolution followed by sigmoid activation:
+\begin{equation}
+	\hat{y} = \sigma(W_{\text{seg}} \ast d_4) \in [0, 1]^{H \times W}
+\end{equation}
+
+
+\subsection{MC Dropout for Uncertainty}
+\label{sec:approach:mc_inference}
+
+At inference time, dropout remains active (by using \texttt{F.dropout2d} with \texttt{training=True}), enabling \ac{MC} sampling. Given $T = 10$ stochastic forward passes:
+
+\begin{equation}
+	\bar{y} = \frac{1}{T}\sum_{t=1}^{T} \hat{y}_t, \quad
+	\text{Var} = \frac{1}{T}\sum_{t=1}^{T} (\hat{y}_t - \bar{y})^2
+\end{equation}
+
+The predictive entropy is:
+\begin{equation}
+	\mathcal{H} = -\bar{y}\log\bar{y} - (1 - \bar{y})\log(1 - \bar{y})
+\end{equation}
+
+
+\section{Novel Uncertainty Metrics}
+\label{sec:approach:metrics}
+
+We introduce three metrics specifically designed to evaluate the impact of language guidance on uncertainty quality.
+
+\subsection{Uncertainty Reduction Score (URS)}
+\label{sec:approach:urs}
+
+The \ac{URS} quantifies the per-pixel reduction in uncertainty when language cues are incorporated:
+\begin{equation}
+	\text{URS}(i) = \frac{\mathcal{H}_{\text{vision}}(i) - \mathcal{H}_{\text{VL}}(i)}{\mathcal{H}_{\text{vision}}(i) + \epsilon}
+\end{equation}
+where $\mathcal{H}_{\text{vision}}(i)$ and $\mathcal{H}_{\text{VL}}(i)$ are the predictive entropies of the vision-only and \ac{VL} models at pixel $i$, respectively. Positive values indicate uncertainty reduction; negative values indicate increase.
+
+Spatial aggregation produces region-level statistics for polyp interior, boundary, and background regions:
+\begin{equation}
+	\text{URS}_{\text{region}} = \frac{1}{|\mathcal{R}|} \sum_{i \in \mathcal{R}} \text{URS}(i)
+\end{equation}
+where $\mathcal{R}$ is the set of pixels in a given region. Boundaries are extracted via morphological operations (dilation minus erosion with a $5 \times 5$ kernel).
+
+\subsection{Semantic Alignment Score (SAS)}
+\label{sec:approach:sas}
+
+The \ac{SAS} measures whether text-indicated similarity between cases translates into correlated uncertainty patterns:
+\begin{equation}
+	\text{SAS} = \rho\left(\text{sim}_{\text{text}}(i, j),\; \text{sim}_{\text{unc}}(i, j)\right) \quad \forall\, (i, j) \text{ pairs}
+\end{equation}
+where $\text{sim}_{\text{text}}$ is the cosine similarity between PubMedBERT caption embeddings and $\text{sim}_{\text{unc}}$ is the Pearson correlation between uncertainty maps (after spatial averaging into $8 \times 8$ grids). SAS values range from $-1$ to $+1$, with positive values indicating semantic alignment.
+
+\subsection{Attribute-Conditioned ECE (AC-ECE)}
+\label{sec:approach:acece}
+
+The \ac{AC-ECE} extends the standard \ac{ECE}~\cite{naeini2015obtaining} by conditioning on clinical attributes:
+\begin{equation}
+	\text{AC-ECE}(a) = \sum_{m=1}^{M} \frac{|B_m^a|}{n^a} \left| \text{acc}(B_m^a) - \text{conf}(B_m^a) \right|
+\end{equation}
+where $B_m^a$ is the $m$-th bin of predictions for samples with attribute value $a$, $\text{acc}$ is the observed accuracy, and $\text{conf}$ is the mean predicted confidence. Attributes include Paris classification shape classes, size bins, and anatomical locations. This enables fine-grained analysis of calibration across clinically meaningful subgroups.

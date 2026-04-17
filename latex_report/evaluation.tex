@@ -1,0 +1,243 @@
+%!TEX root = thesis.tex
+
+\chapter{Evaluation}
+\label{ch:evaluation}
+
+This chapter presents the experimental setup, evaluation metrics, and results of the \ac{VL} segmentation framework.
+
+\section{Experimental Setup}
+\label{sec:eval:setup}
+
+\subsection{Hardware and Software}
+\label{sec:eval:hardware}
+
+All experiments are conducted with the following configuration:
+\begin{itemize}
+	\item \textbf{GPU}: NVIDIA GPU with CUDA support.
+	\item \textbf{Framework}: PyTorch 2.0+ with mixed-precision training (FP16).
+	\item \textbf{Python}: 3.11 with conda environment management.
+	\item \textbf{Key dependencies}: torchvision, transformers (HuggingFace), scikit-learn, scipy.
+\end{itemize}
+
+\subsection{Training Protocol}
+\label{sec:eval:protocol}
+
+Each model is trained for up to 100 epochs with early stopping (patience~15). The training set consists of 70 SUN cases, with 15 cases held out for validation and 15 for testing. Input images are resized to $352 \times 352$ pixels. The batch size is~8 for all experiments.
+
+\subsection{Experimental Configurations}
+\label{sec:eval:configs}
+
+We evaluate six configurations as summarized in Table~\ref{tab:experiments}:
+
+\begin{enumerate}
+	\item \textbf{Vision-Only Baseline}: ResNet-34 encoder + U-Net decoder, no text input.
+	\item \textbf{Full VL Model}: Complete pipeline with all four text attribute categories.
+	\item \textbf{Shape Only}: Text restricted to Paris Classification morphology descriptions.
+	\item \textbf{Size Only}: Text restricted to polyp size descriptions.
+	\item \textbf{Location Only}: Text restricted to anatomical location descriptions.
+	\item \textbf{Pathology Only}: Text restricted to surface pattern and boundary descriptions.
+\end{enumerate}
+
+
+\section{Evaluation Metrics}
+\label{sec:eval:metrics}
+
+\subsection{Segmentation Quality}
+\label{sec:eval:seg_metrics}
+
+\begin{itemize}
+	\item \textbf{\ac{DSC}}: Measures overlap between predicted and ground truth masks:
+	\begin{equation}
+		\text{DSC} = \frac{2|P \cap G|}{|P| + |G|}
+	\end{equation}
+	
+	\item \textbf{\ac{IoU}} (Jaccard Index): A stricter overlap measure:
+	\begin{equation}
+		\text{IoU} = \frac{|P \cap G|}{|P \cup G|}
+	\end{equation}
+	
+	\item \textbf{Precision}: Fraction of predicted polyp pixels that are correct: $\frac{TP}{TP + FP}$.
+	
+	\item \textbf{Recall}: Fraction of actual polyp pixels correctly identified: $\frac{TP}{TP + FN}$.
+\end{itemize}
+
+\subsection{Uncertainty Quality}
+\label{sec:eval:unc_metrics}
+
+\begin{itemize}
+	\item \textbf{\ac{URS}}: Quantifies uncertainty reduction from language integration (Section~\ref{sec:approach:urs}).
+	\item \textbf{\ac{SAS}}: Measures alignment between text similarity and uncertainty patterns (Section~\ref{sec:approach:sas}).
+	\item \textbf{\ac{AC-ECE}}: Attribute-conditioned calibration error (Section~\ref{sec:approach:acece}).
+	\item \textbf{Mean Predictive Entropy}: Average entropy across test pixels.
+	\item \textbf{Mean Predictive Variance}: Average MC~Dropout variance.
+\end{itemize}
+
+
+\section{Results on SUN Dataset}
+\label{sec:eval:sun_results}
+
+\subsection{Segmentation Performance}
+\label{sec:eval:seg_results}
+
+Table~\ref{tab:sun_results} presents the segmentation results across all six configurations on the SUN test set.
+
+\begin{table}[htbp]
+	\caption{Segmentation results on the SUN test set. Best results are highlighted in \textbf{bold}. Results to be populated after experimental runs.}
+	\label{tab:sun_results}
+	\centering
+	\begin{tabular}{lcccc}
+		\toprule
+		\textbf{Configuration} & \textbf{Dice} $\uparrow$ & \textbf{IoU} $\uparrow$ & \textbf{Precision} $\uparrow$ & \textbf{Recall} $\uparrow$ \\
+		\midrule
+		Vision-Only      & ---    & ---    & ---    & ---    \\
+		Full VL          & ---    & ---    & ---    & ---    \\
+		Shape Only       & ---    & ---    & ---    & ---    \\
+		Size Only        & ---    & ---    & ---    & ---    \\
+		Location Only    & ---    & ---    & ---    & ---    \\
+		Pathology Only   & ---    & ---    & ---    & ---    \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\subsection{Uncertainty Analysis}
+\label{sec:eval:unc_results}
+
+Table~\ref{tab:uncertainty_results} summarizes the uncertainty metrics. The \ac{URS} and \ac{SAS} require paired evaluation between the vision-only baseline and each \ac{VL} configuration.
+
+\begin{table}[htbp]
+	\caption{Uncertainty metrics on the SUN test set. URS and SAS are computed relative to the vision-only baseline. Results to be populated after experimental runs.}
+	\label{tab:uncertainty_results}
+	\centering
+	\begin{tabular}{lcccc}
+		\toprule
+		\textbf{Configuration} & \textbf{Mean Entropy} $\downarrow$ & \textbf{Mean Var.} $\downarrow$ & \textbf{URS} $\uparrow$ & \textbf{SAS} $\uparrow$ \\
+		\midrule
+		Vision-Only      & ---    & ---    & ---   & ---   \\
+		Full VL          & ---    & ---    & ---   & ---   \\
+		Shape Only       & ---    & ---    & ---   & ---   \\
+		Size Only        & ---    & ---    & ---   & ---   \\
+		Location Only    & ---    & ---    & ---   & ---   \\
+		Pathology Only   & ---    & ---    & ---   & ---   \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+
+\subsection{Spatial Uncertainty Analysis}
+\label{sec:eval:spatial}
+
+Table~\ref{tab:spatial_urs} presents region-level URS values, comparing uncertainty reduction across polyp interior, boundary, and background regions.
+
+\begin{table}[htbp]
+	\caption{Region-level Uncertainty Reduction Score (URS). Positive values indicate language-driven uncertainty reduction. Results to be populated.}
+	\label{tab:spatial_urs}
+	\centering
+	\begin{tabular}{lccc}
+		\toprule
+		\textbf{Configuration} & \textbf{Polyp URS} & \textbf{Boundary URS} & \textbf{Background URS} \\
+		\midrule
+		Full VL        & ---   & ---   & ---   \\
+		Shape Only     & ---   & ---   & ---   \\
+		Size Only      & ---   & ---   & ---   \\
+		Location Only  & ---   & ---   & ---   \\
+		Pathology Only & ---   & ---   & ---   \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+
+\subsection{Attribute-Conditioned Calibration}
+\label{sec:eval:acece_results}
+
+Table~\ref{tab:acece} presents the \ac{AC-ECE} results conditioned on Paris Classification morphology classes.
+
+\begin{table}[htbp]
+	\caption{Attribute-Conditioned ECE by Paris Classification type. Lower values indicate better calibration. Results to be populated.}
+	\label{tab:acece}
+	\centering
+	\begin{tabular}{lccccc}
+		\toprule
+		\textbf{Configuration} & \textbf{Is} & \textbf{Ip} & \textbf{IIa} & \textbf{IIb} & \textbf{Overall} \\
+		\midrule
+		Vision-Only  & ---   & ---   & ---    & ---    & ---   \\
+		Full VL      & ---   & ---   & ---    & ---    & ---   \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+
+\section{Ablation Study}
+\label{sec:eval:ablation}
+
+The ablation study isolates the contribution of each clinical text attribute to segmentation and uncertainty quality.
+
+\subsection{Per-Attribute Contribution}
+\label{sec:eval:perattr}
+
+Table~\ref{tab:ablation_summary} summarizes the improvement of each single-attribute configuration over the vision-only baseline.
+
+\begin{table}[htbp]
+	\caption{Ablation study: improvement over vision-only baseline. $\Delta$Dice denotes the absolute improvement in Dice score. Results to be populated.}
+	\label{tab:ablation_summary}
+	\centering
+	\begin{tabular}{lcccc}
+		\toprule
+		\textbf{Attribute} & $\Delta$\textbf{Dice} & $\Delta$\textbf{IoU} & \textbf{URS} & \textbf{SAS} \\
+		\midrule
+		Shape     & ---   & ---   & ---   & ---   \\
+		Size      & ---   & ---   & ---   & ---   \\
+		Location  & ---   & ---   & ---   & ---   \\
+		Pathology & ---   & ---   & ---   & ---   \\
+		All       & ---   & ---   & ---   & ---   \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+
+\section{Cross-Dataset Generalization}
+\label{sec:eval:crossdataset}
+
+To assess generalization beyond the SUN training distribution, we evaluate the trained models on two external benchmarks without fine-tuning.
+
+\begin{table}[htbp]
+	\caption{Cross-dataset evaluation results. Models trained on SUN and evaluated on Kvasir-SEG and CVC-ClinicDB without fine-tuning. Results to be populated.}
+	\label{tab:cross_dataset}
+	\centering
+	\begin{tabular}{lcccc}
+		\toprule
+		\multirow{2}{*}{\textbf{Configuration}} & \multicolumn{2}{c}{\textbf{Kvasir-SEG}} & \multicolumn{2}{c}{\textbf{CVC-ClinicDB}} \\
+		\cmidrule(lr){2-3} \cmidrule(lr){4-5}
+		& \textbf{Dice} & \textbf{IoU} & \textbf{Dice} & \textbf{IoU} \\
+		\midrule
+		Vision-Only & ---  & ---  & ---  & ---  \\
+		Full VL     & ---  & ---  & ---  & ---  \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\section{Qualitative Results}
+\label{sec:eval:qualitative}
+
+\begin{figure}[htbp]
+	\centering
+	\fbox{\parbox{0.9\textwidth}{\centering\vspace{3cm}\textbf{[Qualitative Results Placeholder]}\\Columns: Input Image | Ground Truth | Vision-Only Prediction | Full VL Prediction | Uncertainty Map (Vision) | Uncertainty Map (VL)\vspace{3cm}}}
+	\caption[Qualitative segmentation and uncertainty comparison.]{Qualitative comparison of segmentation predictions and uncertainty maps between the vision-only baseline and the full VL model. Each row shows a different test case. The uncertainty maps visualize predictive entropy, where brighter regions indicate higher uncertainty. To be populated after experimental runs.}
+	\label{fig:qualitative}
+\end{figure}
+
+\section{Discussion}
+\label{sec:eval:discussion}
+
+The experimental results will be analyzed along the following dimensions once all runs are completed:
+
+\begin{enumerate}
+	\item \textbf{Segmentation improvement}: Whether the full VL model achieves statistically significant improvement over the vision-only baseline in Dice and IoU.
+	
+	\item \textbf{Attribute importance ranking}: Which individual attributes contribute most to segmentation quality and uncertainty reduction.
+	
+	\item \textbf{Uncertainty calibration}: Whether language guidance leads to better-calibrated predictions, particularly for difficult morphology types (e.g., flat lesions, IIb).
+	
+	\item \textbf{Spatial uncertainty patterns}: Whether URS is highest at polyp boundaries, indicating that language cues help most in ambiguous regions.
+	
+	\item \textbf{Generalization}: Whether VL models maintain their advantage on external benchmark datasets where no text metadata is available at test time (relying on default caption generation).
+\end{enumerate}

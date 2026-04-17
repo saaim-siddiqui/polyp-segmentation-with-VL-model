@@ -1,0 +1,78 @@
+%!TEX root = thesis.tex
+
+\chapter{Related Work}
+\label{ch:relatedwork}
+
+This chapter reviews the most relevant prior work in three areas: polyp segmentation, vision-language models for medical imaging, and uncertainty estimation.
+
+\section{Polyp Segmentation}
+\label{sec:rw:polypseg}
+
+Automated polyp segmentation has evolved significantly from traditional image processing techniques to modern deep learning approaches.
+
+\subsection{Classical Approaches}
+\label{sec:rw:classical}
+
+Early polyp detection systems relied on hand-crafted features such as color histograms, texture descriptors, and edge detectors combined with classifiers like \ac{SVM}s or random forests. While these methods established important baselines, they struggled with the high variability in polyp appearance, lighting conditions, and viewpoint changes inherent to colonoscopy imaging.
+
+\subsection{CNN-Based Methods}
+\label{sec:rw:cnn}
+
+The introduction of fully convolutional networks~\cite{long2015fcn} enabled end-to-end pixel-wise prediction, fundamentally changing the segmentation landscape. U-Net~\cite{ronneberger2015unet} established skip connections as a key architectural principle, and subsequent work expanded on this foundation:
+
+\begin{itemize}
+	\item \textbf{UNet++}~\cite{zhou2018unetplusplus} introduces nested and dense skip connections that reduce the semantic gap between encoder and decoder feature maps. The re-designed skip pathways allow the model to capture features at multiple semantic levels.
+	
+	\item \textbf{PraNet}~\cite{fan2020pranet} introduces a parallel reverse attention mechanism for accurate polyp segmentation, using a reverse attention module to establish the relationship between areas and boundary cues.
+	
+	\item \textbf{DoubleU-Net}~\cite{jha2020doubleunet} stacks two U-Net architectures with a VGG-19 encoder in the first stage and uses Atrous Spatial Pyramid Pooling for multi-scale feature extraction.
+	
+	\item \textbf{TransUNet}~\cite{chen2021transunet} combines a Vision Transformer encoder with a CNN decoder, capturing both global context through self-attention and local detail through convolutional operations.
+\end{itemize}
+
+These approaches achieve strong results on standard benchmarks but operate purely on visual features without incorporating clinical knowledge.
+
+
+\section{Vision-Language Models in Medical Imaging}
+\label{sec:rw:vlmedical}
+
+The success of large-scale \ac{VL} pretraining (e.g., CLIP~\cite{radford2021clip}) has motivated adaptation to medical domains.
+
+\subsection{Medical VL Pretraining}
+\label{sec:rw:vlpretrain}
+
+\textbf{BiomedCLIP}~\cite{zhang2023biomedclip} adapts the CLIP framework to biomedical data by pretraining on 15 million figure-caption pairs from PubMed Central, demonstrating strong performance on medical image classification and retrieval tasks.
+
+\textbf{MedCLIP}~\cite{wang2022medclip} addresses the limitations of contrastive learning with medical data through semantic matching loss, decoupling medical images and texts for more robust cross-modal alignment.
+
+\subsection{Language-Guided Segmentation}
+\label{sec:rw:langseg}
+
+\textbf{CLIPSeg}~\cite{luddecke2022clipseg} extends CLIP with a lightweight decoder for zero-shot image segmentation guided by text or image prompts. While not specifically designed for medical imaging, it demonstrates the feasibility of text-guided segmentation.
+
+\textbf{LViT}~\cite{li2023lvit} proposes a Language-Vision Transformer for medical image segmentation that fuses text and image features through cross-attention, showing improvements over vision-only baselines on ultrasound and X-ray datasets.
+
+In the specific context of polyp segmentation, \ac{VL} approaches remain underexplored. Our work addresses this gap by designing a fusion framework specifically tailored to structured clinical descriptions derived from the Paris Classification system.
+
+
+\section{Uncertainty Estimation in Medical Segmentation}
+\label{sec:rw:uncertainty}
+
+Reliable uncertainty quantification is critical for clinical deployment of segmentation models.
+
+\subsection{Bayesian Approaches}
+\label{sec:rw:bayesian}
+
+\ac{MC} Dropout~\cite{gal2016dropout} provides a principled approximation to Bayesian inference by interpreting dropout at test time as variational inference. This approach has been widely adopted in medical imaging due to its simplicity and compatibility with existing architectures~\cite{leibig2017leveraging, nair2020exploring}.
+
+Deep ensembles~\cite{lakshminarayanan2017simple} train multiple models with different initializations and aggregate their predictions, typically yielding higher-quality uncertainty estimates than \ac{MC} Dropout at the cost of increased computation.
+
+\subsection{Calibration}
+\label{sec:rw:calibration}
+
+Model calibration ensures that predicted probabilities accurately reflect true outcome frequencies. \ac{ECE}~\cite{naeini2015obtaining} is the standard metric for measuring calibration quality. Temperature scaling~\cite{guo2017calibration} provides a simple post-hoc calibration method, while more sophisticated approaches use Platt scaling or isotonic regression.
+
+\subsection{Uncertainty in the VL Context}
+\label{sec:rw:vluncertainty}
+
+The interaction between language guidance and prediction uncertainty has received limited attention. Prior work has explored uncertainty in VL tasks such as visual question answering~\cite{whitehead2022reliable}, but the specific question of whether language cues improve uncertainty calibration in segmentation remains largely unanswered. Our work introduces dedicated metrics (\ac{URS}, \ac{SAS}, \ac{AC-ECE}) to systematically evaluate this relationship.

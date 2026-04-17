@@ -1,0 +1,168 @@
+%!TEX root = thesis.tex
+
+\appendix
+
+\chapter{Appendix}
+\label{ch:Appendix}
+
+\section{Complete Configuration Defaults}
+\label{sec:app:config}
+
+Table~\ref{tab:full_config} lists all configuration parameters and their default values.
+
+\begin{table}[htbp]
+	\caption{Complete configuration parameter listing.}
+	\label{tab:full_config}
+	\centering
+	\small
+	\begin{tabular}{llp{6cm}}
+		\toprule
+		\textbf{Parameter} & \textbf{Default} & \textbf{Description} \\
+		\midrule
+		\multicolumn{3}{l}{\textit{Model Configuration}} \\
+		\texttt{model\_dim}         & 256    & Model embedding dimension \\
+		\texttt{vision\_backbone}   & resnet34 & Vision encoder backbone \\
+		\texttt{vision\_pretrained} & True   & Use ImageNet pretraining \\
+		\texttt{text\_model\_name}  & PubMedBERT & HuggingFace model identifier \\
+		\texttt{freeze\_text}       & True   & Freeze text encoder weights \\
+		\texttt{fusion\_type}       & cross\_attention & Fusion mechanism \\
+		\texttt{num\_heads}         & 8      & Attention heads in fusion \\
+		\texttt{decoder\_channels}  & [256,128,64,32] & Decoder channel sizes \\
+		\texttt{mc\_dropout}        & 0.1    & MC Dropout probability \\
+		\midrule
+		\multicolumn{3}{l}{\textit{Training Configuration}} \\
+		\texttt{learning\_rate}     & $10^{-4}$ & Initial learning rate \\
+		\texttt{weight\_decay}      & $10^{-5}$ & L2 regularization \\
+		\texttt{batch\_size}        & 8      & Training batch size \\
+		\texttt{num\_epochs}        & 100    & Maximum training epochs \\
+		\texttt{loss\_type}         & bce\_dice & Loss function \\
+		\texttt{bce\_weight}        & 0.5    & BCE weight in combined loss \\
+		\texttt{optimizer}          & adamw  & Optimizer type \\
+		\texttt{scheduler}          & cosine & LR scheduler \\
+		\texttt{warmup\_epochs}     & 5      & LR warmup period \\
+		\texttt{patience}           & 15     & Early stopping patience \\
+		\texttt{use\_amp}           & True   & Mixed-precision training \\
+		\midrule
+		\multicolumn{3}{l}{\textit{Data Configuration}} \\
+		\texttt{image\_size}        & 352    & Input image size \\
+		\texttt{train\_split}       & 0.7    & Training data fraction \\
+		\texttt{val\_split}         & 0.15   & Validation data fraction \\
+		\texttt{frame\_limit}       & 500    & Max frames per case \\
+		\texttt{oversample}         & 2.0    & Small polyp oversample factor \\
+		\midrule
+		\multicolumn{3}{l}{\textit{Uncertainty Configuration}} \\
+		\texttt{mc\_samples}        & 10     & Number of MC forward passes \\
+		\texttt{ece\_bins}          & 15     & ECE histogram bins \\
+		\texttt{urs\_grid}          & $8\times 8$ & Spatial aggregation grid \\
+		\texttt{boundary\_kernel}   & 5      & Boundary extraction kernel \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+
+\section{Experiment Commands}
+\label{sec:app:commands}
+
+\subsection{Training Commands}
+
+\begin{lstlisting}[language=bash, caption={Training commands for all experimental configurations.}, label={lst:train_commands}]
+# Vision-only baseline
+python -m src.train --data_root ./data/sun \
+    --experiment vision_only --epochs 100
+
+# Full VL model (all text attributes)
+python -m src.train --data_root ./data/sun \
+    --experiment full --epochs 100
+
+# Shape-only ablation
+python -m src.train --data_root ./data/sun \
+    --experiment text_shape_only --epochs 100
+
+# Size-only ablation
+python -m src.train --data_root ./data/sun \
+    --experiment text_size_only --epochs 100
+
+# Location-only ablation
+python -m src.train --data_root ./data/sun \
+    --experiment text_location_only --epochs 100
+
+# Pathology-only ablation
+python -m src.train --data_root ./data/sun \
+    --experiment text_boundary_only --epochs 100
+\end{lstlisting}
+
+\subsection{Evaluation Command}
+
+\begin{lstlisting}[language=bash, caption={Evaluation command for paired model comparison.}, label={lst:eval_command}]
+python -m src.evaluate \
+    --checkpoint ./checkpoints/full_vl/best.pt \
+    --vision_checkpoint ./checkpoints/vision_only/best.pt \
+    --data_root ./data/sun \
+    --output_dir ./results/sun_evaluation \
+    --mc_samples 10
+\end{lstlisting}
+
+
+\section{SUN Dataset Case Metadata}
+\label{sec:app:metadata}
+
+Table~\ref{tab:case_metadata} lists the metadata for a representative subset of the 100 SUN cases.
+
+\begin{table}[htbp]
+	\caption{Representative case metadata from the SUN Colonoscopy Video Database (first 20 cases shown).}
+	\label{tab:case_metadata}
+	\centering
+	\small
+	\begin{tabular}{lclcr}
+		\toprule
+		\textbf{Case} & \textbf{Paris} & \textbf{Location} & \textbf{Size (mm)} & \textbf{Frames} \\
+		\midrule
+		case1  & Is  & sigmoid colon    & 8  & 463  \\
+		case2  & IIa & rectum           & 5  & 503  \\
+		case3  & Is  & ascending colon  & 12 & 348  \\
+		case4  & IIa & transverse colon & 3  & 587  \\
+		case5  & Ip  & sigmoid colon    & 20 & 412  \\
+		case6  & Is  & cecum            & 6  & 521  \\
+		case7  & IIa & descending colon & 4  & 389  \\
+		case8  & Is  & sigmoid colon    & 10 & 445  \\
+		case9  & IIb & rectum           & 15 & 367  \\
+		case10 & IIa & ascending colon  & 7  & 498  \\
+		case11 & Is  & transverse colon & 9  & 432  \\
+		case12 & Ip  & rectum           & 25 & 378  \\
+		case13 & IIa & sigmoid colon    & 4  & 512  \\
+		case14 & Is  & cecum            & 11 & 401  \\
+		case15 & IIa & descending colon & 6  & 467  \\
+		case16 & Is  & sigmoid colon    & 8  & 423  \\
+		case17 & IIa & rectum           & 5  & 489  \\
+		case18 & Ip  & ascending colon  & 18 & 356  \\
+		case19 & Is  & transverse colon & 7  & 534  \\
+		case20 & IIa & sigmoid colon    & 3  & 478  \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+
+\section{Model Parameter Counts}
+\label{sec:app:params}
+
+\begin{table}[htbp]
+	\caption{Trainable and total parameter counts for each model variant.}
+	\label{tab:params}
+	\centering
+	\begin{tabular}{lrrr}
+		\toprule
+		\textbf{Component} & \textbf{Total} & \textbf{Trainable} & \textbf{Frozen} \\
+		\midrule
+		ResNet-34 Encoder        & 21.3M & 21.3M & 0     \\
+		Bottleneck Projection    & 0.13M & 0.13M & 0     \\
+		PubMedBERT               & 109.5M & 0    & 109.5M \\
+		Text Projection Heads    & 0.79M & 0.79M & 0     \\
+		Cross-Attention Fusion   & 1.33M & 1.33M & 0     \\
+		U-Net Decoder            & 0.95M & 0.95M & 0     \\
+		Segmentation Head        & 33    & 33    & 0     \\
+		\midrule
+		\textbf{Vision-Only Total}    & \textbf{22.4M} & \textbf{22.4M} & \textbf{0} \\
+		\textbf{Full VL Total}        & \textbf{134.0M} & \textbf{24.5M} & \textbf{109.5M} \\
+		\bottomrule
+	\end{tabular}
+\end{table}

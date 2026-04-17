@@ -1,0 +1,72 @@
+%!TEX root = thesis.tex
+
+\chapter{Conclusion}
+\label{ch:conclusion}
+
+\section{Summary}
+\label{sec:concl:summary}
+
+This Praktikum report presented the design and implementation of a \ac{VL} polyp segmentation framework that integrates structured clinical text descriptions with visual features to improve both segmentation quality and uncertainty estimation. The key components of the system include:
+
+\begin{itemize}
+	\item A \textbf{\ac{ResNet}-34 vision encoder} pretrained on ImageNet, providing multi-scale feature extraction across five resolution levels.
+	
+	\item A \textbf{frozen \ac{PubMedBERT} text encoder} that processes structured clinical captions derived from the Paris Classification system, capturing morphology, size, location, and surface characteristics.
+	
+	\item A \textbf{cross-attention fusion module} with 8 attention heads that enables fine-grained vision-language interaction, allowing spatial visual features to selectively attend to relevant clinical text information.
+	
+	\item A \textbf{U-Net-style decoder with \ac{MC} Dropout} ($p = 0.1$, $T = 10$ samples) for simultaneous segmentation and uncertainty quantification.
+	
+	\item \textbf{Three novel evaluation metrics} (\ac{URS}, \ac{SAS}, \ac{AC-ECE}) specifically designed to quantify the impact of language guidance on uncertainty quality.
+\end{itemize}
+
+The framework was designed with modularity and reproducibility as guiding principles. The configuration system supports six experimental presets that enable systematic ablation across clinical text attributes.
+
+
+\section{Findings}
+\label{sec:concl:findings}
+
+The experimental framework has been fully implemented and validated. Detailed quantitative conclusions will be drawn upon completion of all experimental runs. The ablation study across six configurations (vision-only, full VL, and four single-attribute variants) will provide insights into:
+
+\begin{enumerate}
+	\item The overall effectiveness of language guidance for polyp segmentation.
+	\item The relative importance of individual clinical attributes (shape, size, location, pathology).
+	\item The impact of text integration on uncertainty calibration across different polyp types.
+	\item Cross-dataset generalization to Kvasir-SEG and CVC-ClinicDB.
+\end{enumerate}
+
+
+\section{Limitations}
+\label{sec:concl:limitations}
+
+Several limitations of the current approach should be noted:
+
+\begin{itemize}
+	\item \textbf{Text availability at inference}: The framework assumes access to clinical metadata for generating text descriptions at test time. In real deployment, this metadata may not be available, requiring either a default caption strategy or a separate metadata prediction module.
+	
+	\item \textbf{Frozen text encoder}: While freezing PubMedBERT prevents overfitting, it also prevents the text representations from adapting to the specific visual characteristics of the polyp segmentation task.
+	
+	\item \textbf{Dataset size}: The SUN dataset, while substantial (49{,}136 frames), is derived from only 100 unique polyps. The effective diversity is limited by the video-based nature of the data.
+	
+	\item \textbf{MC Dropout approximation}: MC Dropout provides a computationally efficient but approximate uncertainty estimate. More sophisticated methods (e.g., deep ensembles) may yield higher-quality uncertainties at increased computational cost.
+\end{itemize}
+
+
+\section{Future Work}
+\label{sec:concl:future}
+
+Several directions for future work emerge from this project:
+
+\begin{itemize}
+	\item \textbf{Learnable text encoder}: Fine-tuning PubMedBERT (or a portion of it) with appropriate regularization and potentially with a larger medical image-text dataset.
+	
+	\item \textbf{Automatic caption generation}: Training a separate model to predict clinical attributes directly from the input image, removing the dependency on external metadata.
+	
+	\item \textbf{Stronger vision backbones}: Replacing ResNet-34 with more powerful encoders such as ResNet-101 or Vision Transformers (ViT), and investigating the interaction between backbone capacity and language benefit.
+	
+	\item \textbf{Multi-scale fusion}: Applying cross-attention at multiple encoder levels rather than only at the bottleneck, potentially capturing attribute-relevant features at different spatial scales.
+	
+	\item \textbf{Real-time inference}: Optimizing the pipeline for real-time deployment during colonoscopy, potentially through model distillation, pruning, or efficient attention mechanisms.
+	
+	\item \textbf{Extended evaluation}: Testing on additional polyp segmentation benchmarks (e.g., ETIS-Larib, ColonDB) and evaluating with boundary-specific metrics such as boundary IoU.
+\end{itemize}

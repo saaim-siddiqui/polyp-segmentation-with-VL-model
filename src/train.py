@@ -494,6 +494,7 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=None, help="Batch size")
     parser.add_argument("--lr", type=float, default=None, help="Learning rate")
     parser.add_argument("--resume", type=str, default=None, help="Checkpoint to resume from")
+    parser.add_argument("--output_dir", type=str, default=None, help="Directory to save checkpoints (overrides timestamped default)")
     
     args = parser.parse_args()
     
@@ -508,9 +509,12 @@ if __name__ == "__main__":
     if args.lr is not None:
         config.training.learning_rate = args.lr
     
-    # Set checkpoint directory with timestamp
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    config.training.checkpoint_dir = f"./checkpoints/{config.experiment.name}_{timestamp}"
+    # Set checkpoint directory
+    if args.output_dir is not None:
+        config.training.checkpoint_dir = args.output_dir
+    else:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        config.training.checkpoint_dir = f"./checkpoints/{config.experiment.name}_{timestamp}"
     
     # Train
     history = train_model(config, args.data_root, args.resume)

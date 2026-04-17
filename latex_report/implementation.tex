@@ -1,0 +1,240 @@
+%!TEX root = thesis.tex
+
+\chapter{Implementation}
+\label{ch:implementation}
+
+This chapter describes the software implementation of the \ac{VL} segmentation framework, covering the project structure, data pipeline, model construction, and training procedure.
+
+\section{Project Structure}
+\label{sec:impl:structure}
+
+The codebase is organized into a modular Python package under \texttt{src/}, with a clear separation of concerns:
+
+\begin{lstlisting}[language={}, caption={Project directory structure.}, label={lst:project_structure}]
+vl_segmentation/
+  src/
+    config.py           # Dataclass-based configuration
+    train.py            # Training pipeline
+    evaluate.py         # Evaluation & visualization
+    models/
+      vision_encoder.py # ResNet-34 encoder
+      text_encoder.py   # PubMedBERT encoder (generic)
+      text_encoder_sun.py # SUN-specific captions
+      fusion.py         # Cross-attention, FiLM, concat
+      decoder.py        # U-Net decoder + MC Dropout
+      vl_segmentation.py # Full model assembly
+    data/
+      dataset_sun.py    # SUN dataset loader
+      benchmark_datasets.py # Kvasir/CVC loaders
+    metrics/
+      uncertainty_metrics.py # URS, SAS, AC-ECE
+  checkpoints/          # Saved model weights
+  data/                 # Dataset directories
+  results/              # Evaluation outputs
+  scripts/
+    run_all_experiments.sh
+\end{lstlisting}
+
+All model components are implemented in PyTorch 2.0+ and designed to be composable: the vision encoder, text encoder, fusion module, and decoder can each be configured independently through the central configuration system.
+
+
+\section{Configuration System}
+\label{sec:impl:config}
+
+The configuration system uses Python dataclasses to provide type-safe, hierarchical configuration with sensible defaults. The main \texttt{Config} dataclass aggregates sub-configurations for each component:
+
+\begin{lstlisting}[language=Python, caption={Configuration dataclass hierarchy (simplified).}, label={lst:config}]
+@dataclass
+class ModelConfig:
+    model_dim: int = 256
+    vision_backbone: str = "resnet34"
+    vision_pretrained: bool = True
+    text_model_name: str = "microsoft/BiomedNLP-
+        PubMedBERT-base-uncased-abstract"
+    freeze_text_encoder: bool = True
+    fusion_type: str = "cross_attention"  
+    num_attention_heads: int = 8
+    decoder_channels: List[int] = (256, 128, 64, 32)
+    mc_dropout_rate: float = 0.1
+
+@dataclass
+class TrainingConfig:
+    learning_rate: float = 1e-4
+    weight_decay: float = 1e-5
+    batch_size: int = 8
+    num_epochs: int = 100
+    loss_type: str = "bce_dice"
+    bce_weight: float = 0.5
+    optimizer: str = "adamw"
+    scheduler: str = "cosine"
+    warmup_epochs: int = 5
+    early_stopping_patience: int = 15
+    use_amp: bool = True
+\end{lstlisting}
+
+Six predefined experiment presets simplify launching the ablation study:
+
+\begin{table}[htbp]
+	\caption{Experiment presets and their configurations. Each preset activates different text attribute categories.}
+	\label{tab:experiments}
+	\centering
+	\begin{tabular}{lccccl}
+		\toprule
+		\textbf{Preset} & \textbf{Text} & \textbf{Shape} & \textbf{Size} & \textbf{Location} & \textbf{Description} \\
+		\midrule
+		\texttt{vision\_only}      & \textemdash & \textemdash & \textemdash & \textemdash & Vision-only baseline \\
+		\texttt{full}              & \checkmark  & \checkmark  & \checkmark  & \checkmark  & All attributes \\
+		\texttt{text\_shape\_only} & \checkmark  & \checkmark  & \textemdash & \textemdash & Shape attribute only \\
+		\texttt{text\_size\_only}  & \checkmark  & \textemdash & \checkmark  & \textemdash & Size attribute only \\
+		\texttt{text\_location\_only} & \checkmark & \textemdash & \textemdash & \checkmark & Location only \\
+		\texttt{text\_boundary\_only} & \checkmark & \textemdash & \textemdash & \textemdash & Pathology/boundary only \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+
+\section{Data Pipeline}
+\label{sec:impl:data}
+
+\subsection{SUN Colonoscopy Video Database}
+\label{sec:impl:sun}
+
+The primary dataset is the \ac{SUN} Colonoscopy Video Database, containing 100 positive cases with 49{,}136 annotated polyp frames. The dataset is organized into case-level directories, each containing:
+
+\begin{itemize}
+	\item \texttt{frames/}: Colonoscopy video frames as JPEG images.
+	\item \texttt{masks/}: Corresponding binary segmentation masks.
+\end{itemize}
+
+Each case has associated metadata (embedded in the dataset class) specifying:
+\begin{itemize}
+	\item Paris Classification morphology type (e.g., Is, Ip, IIa, IIb).
+	\item Polyp size in millimeters.
+	\item Anatomical location (e.g., sigmoid colon, cecum, ascending colon).
+\end{itemize}
+
+\begin{lstlisting}[language=Python, caption={Example of case-level metadata definition.}, label={lst:metadata}]
+CASE_METADATA = {
+    "case1": {
+        "paris_class": "Is",
+        "size_mm": 8,
+        "location": "sigmoid colon",
+        "num_frames": 463
+    },
+    # ... 99 more cases
+}
+\end{lstlisting}
+
+\subsection{Data Splitting}
+\label{sec:impl:split}
+
+The dataset is split at the \textbf{case level} (not frame level) to prevent data leakage between temporally correlated frames from the same video:
+
+\begin{itemize}
+	\item \textbf{Training}: 70 cases (approximately 34{,}395 frames).
+	\item \textbf{Validation}: 15 cases (approximately 7{,}370 frames).
+	\item \textbf{Test}: 15 cases (approximately 7{,}371 frames).
+\end{itemize}
+
+A per-case frame limit (default: 500 frames) controls the maximum number of frames sampled from each case, and an oversampling factor (default: $2\times$) for small polyps ($\leq 5$\,mm) addresses class imbalance.
+
+\subsection{Data Augmentation}
+\label{sec:impl:augmentation}
+
+Training augmentations include:
+\begin{itemize}
+	\item Random horizontal flip ($p = 0.5$).
+	\item Random vertical flip ($p = 0.5$).
+	\item Random rotation ($\pm 30°$).
+	\item Color jitter (brightness, contrast, saturation: $\pm 0.2$; hue: $\pm 0.1$).
+	\item Resize to $352 \times 352$ followed by normalization with ImageNet statistics ($\mu = [0.485, 0.456, 0.406]$, $\sigma = [0.229, 0.224, 0.225]$).
+\end{itemize}
+
+\subsection{Benchmark Datasets}
+\label{sec:impl:benchmark}
+
+For cross-dataset generalization evaluation, two additional benchmarks are supported:
+
+\begin{table}[htbp]
+	\caption{Benchmark datasets for cross-dataset evaluation.}
+	\label{tab:benchmarks}
+	\centering
+	\begin{tabular}{lccp{6cm}}
+		\toprule
+		\textbf{Dataset} & \textbf{Images} & \textbf{Resolution} & \textbf{Description} \\
+		\midrule
+		Kvasir-SEG~\cite{jha2020kvasir} & 1{,}000 & Variable & Gastrointestinal polyp images with ground truth from Vestre Viken Health Trust \\
+		CVC-ClinicDB~\cite{bernal2015cvc} & 612 & $384 \times 288$ & Colonoscopy frames from 29 sequences at Hospital Cl\'{i}nic, Barcelona \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+
+\section{Model Construction}
+\label{sec:impl:model}
+
+The \texttt{VLSegmentationModel} class (Listing~\ref{lst:model_forward}) assembles all components via a factory function:
+
+\begin{lstlisting}[language=Python, caption={Simplified forward pass of VLSegmentationModel.}, label={lst:model_forward}]
+class VLSegmentationModel(nn.Module):
+    def forward(self, images, text_inputs=None):
+        # 1. Extract multi-scale visual features
+        features, bottleneck, global_feat = 
+            self.vision_encoder(images)
+        
+        # 2. Encode text (if available)
+        if text_inputs is not None:
+            text_seq, text_global = 
+                self.text_encoder(text_inputs)
+            # 3. Fuse modalities
+            fused = self.fusion(
+                bottleneck, text_seq, text_global)
+        else:
+            fused = bottleneck
+        
+        # 4. Decode with skip connections
+        output = self.decoder(fused, features)
+        return output
+\end{lstlisting}
+
+The vision-only baseline (\texttt{VisionOnlyModel}) uses the same encoder and decoder but omits the text encoder and fusion module entirely, ensuring an architecturally fair comparison.
+
+
+\section{Training Procedure}
+\label{sec:impl:training}
+
+\subsection{Optimization}
+\label{sec:impl:optimization}
+
+Training uses the AdamW optimizer~\cite{loshchilov2019adamw} with the following configuration:
+
+\begin{itemize}
+	\item Learning rate: $\eta = 10^{-4}$.
+	\item Weight decay: $\lambda = 10^{-5}$.
+	\item Betas: $\beta_1 = 0.9$, $\beta_2 = 0.999$.
+	\item Cosine annealing learning rate schedule with linear warmup over the first 5 epochs.
+	\item Mixed-precision training (FP16) via PyTorch \texttt{GradScaler} for memory efficiency.
+\end{itemize}
+
+\subsection{Loss Function}
+\label{sec:impl:loss}
+
+The combined loss (Equation~\ref{eq:combined_loss}) uses equal weighting ($\alpha = 0.5$) of \ac{BCE} and Dice losses. A focal loss variant~\cite{lin2017focal} is also implemented as an alternative:
+\begin{equation}
+	\mathcal{L}_{\text{focal}} = -\alpha_t (1 - p_t)^\gamma \log(p_t)
+\end{equation}
+with focusing parameter $\gamma = 2$ and class balancing $\alpha_t = 0.25$.
+
+\subsection{Early Stopping and Checkpointing}
+\label{sec:impl:earlystop}
+
+Early stopping with patience 15 monitors the validation Dice score. Training terminates if no improvement is observed for 15 consecutive epochs. Two checkpoints are maintained:
+\begin{itemize}
+	\item \texttt{best.pt}: Model with the highest validation Dice score.
+	\item \texttt{latest.pt}: Most recent model state for resuming interrupted training.
+\end{itemize}
+
+\subsection{Reproducibility}
+\label{sec:impl:reproducibility}
+
+All random seeds (Python, NumPy, PyTorch, CUDA) are set to a fixed value (default: 42) at initialization. Deterministic cuDNN settings are enabled to ensure reproducible results across runs.

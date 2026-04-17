@@ -35,6 +35,29 @@ BATCH_SIZE=4
 mkdir -p $CHECKPOINT_DIR
 mkdir -p $RESULTS_DIR
 
+# Helper: skip if best.pt exists, resume from latest.pt if interrupted
+# Usage: run_training <output_dir> --data_root ... --experiment ... [other args]
+run_training() {
+    local output_dir="$1"
+    shift
+
+    if [ -f "$output_dir/best.pt" ]; then
+        echo "  [SKIP] $output_dir already has best.pt — training complete, skipping."
+        return 0
+    fi
+
+    local resume_arg=""
+    if [ -f "$output_dir/latest.pt" ]; then
+        echo "  [RESUME] Found interrupted run at $output_dir/latest.pt — resuming."
+        resume_arg="--resume $output_dir/latest.pt"
+    fi
+
+    python -m src.train \
+        --output_dir "$output_dir" \
+        $resume_arg \
+        "$@"
+}
+
 echo "=============================================="
 echo "VL Polyp Segmentation - Full Experiment Suite"
 echo "=============================================="
@@ -59,201 +82,196 @@ echo "=============================================="
 echo ""
 echo "[1/6] Training Vision-Only Baseline..."
 echo "----------------------------------------------"
-python -m src.train \
+run_training $CHECKPOINT_DIR/vision_only_baseline \
     --data_root $DATA_ROOT \
     --experiment vision_only \
     --epochs $EPOCHS \
-    --batch_size $BATCH_SIZE 
+    --batch_size $BATCH_SIZE
 
 echo "Done Vision-Only Training."
 
-# # 1.2 Full VL Model
-# echo ""
-# echo "[2/6] Training Full VL Model..."
-# echo "----------------------------------------------"
-# python -m src.train \
-#     --data_root $DATA_ROOT \
-#     --experiment full \
-#     --epochs $EPOCHS \
-#     --batch_size $BATCH_SIZE \
-#     --output_dir $CHECKPOINT_DIR/full_vl
+# 1.2 Full VL Model
+echo ""
+echo "[2/6] Training Full VL Model..."
+echo "----------------------------------------------"
+run_training $CHECKPOINT_DIR/full_vl \
+    --data_root $DATA_ROOT \
+    --experiment full \
+    --epochs $EPOCHS \
+    --batch_size $BATCH_SIZE
 
-# # 1.3 Ablation: Shape Only
-# echo ""
-# echo "[3/6] Training Ablation: Shape Only..."
-# echo "----------------------------------------------"
-# python -m src.train \
-#     --data_root $DATA_ROOT \
-#     --experiment text_shape_only \
-#     --epochs $EPOCHS \
-#     --batch_size $BATCH_SIZE \
-#     --output_dir $CHECKPOINT_DIR/ablations/shape_only
+# 1.3 Ablation: Shape Only
+echo ""
+echo "[3/6] Training Ablation: Shape Only..."
+echo "----------------------------------------------"
+run_training $CHECKPOINT_DIR/ablations/shape_only \
+    --data_root $DATA_ROOT \
+    --experiment text_shape_only \
+    --epochs $EPOCHS \
+    --batch_size $BATCH_SIZE
 
-# # 1.4 Ablation: Size Only
-# echo ""
-# echo "[4/6] Training Ablation: Size Only..."
-# echo "----------------------------------------------"
-# python -m src.train \
-#     --data_root $DATA_ROOT \
-#     --experiment text_size_only \
-#     --epochs $EPOCHS \
-#     --batch_size $BATCH_SIZE \
-#     --output_dir $CHECKPOINT_DIR/ablations/size_only
+# 1.4 Ablation: Size Only
+echo ""
+echo "[4/6] Training Ablation: Size Only..."
+echo "----------------------------------------------"
+run_training $CHECKPOINT_DIR/ablations/size_only \
+    --data_root $DATA_ROOT \
+    --experiment text_size_only \
+    --epochs $EPOCHS \
+    --batch_size $BATCH_SIZE
 
-# # 1.5 Ablation: Location Only
-# echo ""
-# echo "[5/6] Training Ablation: Location Only..."
-# echo "----------------------------------------------"
-# python -m src.train \
-#     --data_root $DATA_ROOT \
-#     --experiment text_location_only \
-#     --epochs $EPOCHS \
-#     --batch_size $BATCH_SIZE \
-#     --output_dir $CHECKPOINT_DIR/ablations/location_only
+# 1.5 Ablation: Location Only
+echo ""
+echo "[5/6] Training Ablation: Location Only..."
+echo "----------------------------------------------"
+run_training $CHECKPOINT_DIR/ablations/location_only \
+    --data_root $DATA_ROOT \
+    --experiment text_location_only \
+    --epochs $EPOCHS \
+    --batch_size $BATCH_SIZE
 
-# # 1.6 Ablation: Pathology Only
-# echo ""
-# echo "[6/6] Training Ablation: Pathology Only..."
-# echo "----------------------------------------------"
-# python -m src.train \
-#     --data_root $DATA_ROOT \
-#     --experiment text_pathology_only \
-#     --epochs $EPOCHS \
-#     --batch_size $BATCH_SIZE \
-#     --output_dir $CHECKPOINT_DIR/ablations/pathology_only
+# 1.6 Ablation: Pathology Only
+echo ""
+echo "[6/6] Training Ablation: Pathology Only..."
+echo "----------------------------------------------"
+run_training $CHECKPOINT_DIR/ablations/pathology_only \
+    --data_root $DATA_ROOT \
+    --experiment text_pathology_only \
+    --epochs $EPOCHS \
+    --batch_size $BATCH_SIZE
 
-# echo ""
-# echo "✓ Phase 1 Complete: All models trained"
-# echo ""
+echo ""
+echo "✓ Phase 1 Complete: All models trained"
+echo ""
 
-# # ==============================================================================
-# # PHASE 2: Evaluation on SUN Database
-# # ==============================================================================
+# ==============================================================================
+# PHASE 2: Evaluation on SUN Database
+# ==============================================================================
 
-# echo "=============================================="
-# echo "PHASE 2: EVALUATION ON SUN DATABASE"
-# echo "=============================================="
+echo "=============================================="
+echo "PHASE 2: EVALUATION ON SUN DATABASE"
+echo "=============================================="
 
-# # 2.1 Full Evaluation with Uncertainty Analysis
-# echo ""
-# echo "[1/2] Running full evaluation with uncertainty analysis..."
-# echo "----------------------------------------------"
-# python -m src.evaluate \
-#     --checkpoint $CHECKPOINT_DIR/full_vl/best.pt \
-#     --vision_checkpoint $CHECKPOINT_DIR/vision_only/best.pt \
-#     --data_root $DATA_ROOT \
-#     --output_dir $RESULTS_DIR/sun_full
+# 2.1 Full Evaluation with Uncertainty Analysis
+echo ""
+echo "[1/2] Running full evaluation with uncertainty analysis..."
+echo "----------------------------------------------"
+python -m src.evaluate \
+    --checkpoint $CHECKPOINT_DIR/full_vl/best.pt \
+    --vision_checkpoint $CHECKPOINT_DIR/vision_only_baseline/best.pt \
+    --data_root $DATA_ROOT \
+    --output_dir $RESULTS_DIR/sun_full
 
-# # 2.2 Evaluate all ablations
-# echo ""
-# echo "[2/2] Evaluating ablation models..."
-# echo "----------------------------------------------"
+# 2.2 Evaluate all ablations
+echo ""
+echo "[2/2] Evaluating ablation models..."
+echo "----------------------------------------------"
 
-# for ablation in shape_only size_only location_only pathology_only; do
-#     echo "  Evaluating: $ablation"
-#     python -m src.evaluate \
-#         --checkpoint $CHECKPOINT_DIR/ablations/$ablation/best.pt \
-#         --data_root $DATA_ROOT \
-#         --output_dir $RESULTS_DIR/ablations/$ablation
-# done
+for ablation in shape_only size_only location_only pathology_only; do
+    echo "  Evaluating: $ablation"
+    python -m src.evaluate \
+        --checkpoint $CHECKPOINT_DIR/ablations/$ablation/best.pt \
+        --data_root $DATA_ROOT \
+        --output_dir $RESULTS_DIR/ablations/$ablation
+done
 
-# echo ""
-# echo "✓ Phase 2 Complete: SUN evaluation done"
-# echo ""
+echo ""
+echo "✓ Phase 2 Complete: SUN evaluation done"
+echo ""
 
-# # ==============================================================================
-# # PHASE 3: Benchmark Evaluation
-# # ==============================================================================
-
-# # echo "=============================================="
-# # echo "PHASE 3: BENCHMARK EVALUATION"
-# # echo "=============================================="
-
-# # # Check if benchmark datasets exist
-# # if [ -d "$KVASIR_PATH" ] && [ -d "$CVC_PATH" ]; then
-# #     echo ""
-# #     echo "Running benchmark evaluation..."
-# #     echo "----------------------------------------------"
-# #     python -m src.evaluate_benchmarks \
-# #         --checkpoint $CHECKPOINT_DIR/full_vl/best.pt \
-# #         --vision_checkpoint $CHECKPOINT_DIR/vision_only/best.pt \
-# #         --kvasir_path $KVASIR_PATH \
-# #         --cvc_path $CVC_PATH \
-# #         --output_dir $RESULTS_DIR/benchmarks
-# # else
-# #     echo ""
-# #     echo "⚠ Benchmark datasets not found. Skipping benchmark evaluation."
-# #     echo "  To run benchmarks, download:"
-# #     echo "  - Kvasir-SEG to $KVASIR_PATH"
-# #     echo "  - CVC-ClinicDB to $CVC_PATH"
-# # fi
-
-# # echo ""
-# # echo "✓ Phase 3 Complete"
-# # echo ""
-
-# # ==============================================================================
-# # PHASE 4: Generate Summary
-# # ==============================================================================
+# ==============================================================================
+# PHASE 3: Benchmark Evaluation
+# ==============================================================================
 
 # echo "=============================================="
-# echo "PHASE 4: GENERATE SUMMARY"
+# echo "PHASE 3: BENCHMARK EVALUATION"
 # echo "=============================================="
 
+# # Check if benchmark datasets exist
+# if [ -d "$KVASIR_PATH" ] && [ -d "$CVC_PATH" ]; then
+#     echo ""
+#     echo "Running benchmark evaluation..."
+#     echo "----------------------------------------------"
+#     python -m src.evaluate_benchmarks \
+#         --checkpoint $CHECKPOINT_DIR/full_vl/best.pt \
+#         --vision_checkpoint $CHECKPOINT_DIR/vision_only/best.pt \
+#         --kvasir_path $KVASIR_PATH \
+#         --cvc_path $CVC_PATH \
+#         --output_dir $RESULTS_DIR/benchmarks
+# else
+#     echo ""
+#     echo "⚠ Benchmark datasets not found. Skipping benchmark evaluation."
+#     echo "  To run benchmarks, download:"
+#     echo "  - Kvasir-SEG to $KVASIR_PATH"
+#     echo "  - CVC-ClinicDB to $CVC_PATH"
+# fi
+
 # echo ""
-# echo "Generating results summary..."
-# python -c "
-# import json
-# from pathlib import Path
+# echo "✓ Phase 3 Complete"
+# echo ""
 
-# results_dir = Path('$RESULTS_DIR')
+# ==============================================================================
+# PHASE 4: Generate Summary
+# ==============================================================================
 
-# print('\\n' + '='*60)
-# print('EXPERIMENT RESULTS SUMMARY')
-# print('='*60)
+echo "=============================================="
+echo "PHASE 4: GENERATE SUMMARY"
+echo "=============================================="
 
-# # Load main results
-# main_results = results_dir / 'sun_full' / 'evaluation_results.json'
-# if main_results.exists():
-#     with open(main_results) as f:
-#         results = json.load(f)
+echo ""
+echo "Generating results summary..."
+python -c "
+import json
+from pathlib import Path
+
+results_dir = Path('$RESULTS_DIR')
+
+print('\\n' + '='*60)
+print('EXPERIMENT RESULTS SUMMARY')
+print('='*60)
+
+# Load main results
+main_results = results_dir / 'sun_full' / 'evaluation_results.json'
+if main_results.exists():
+    with open(main_results) as f:
+        results = json.load(f)
     
-#     print('\\nMain Results (SUN Database):')
-#     print('-'*40)
+    print('\\nMain Results (SUN Database):')
+    print('-'*40)
     
-#     if 'vl_model' in results:
-#         print(f\"  VL Model Dice:     {results['vl_model']['dice']['mean']:.4f}\")
-#         print(f\"  VL Model IoU:      {results['vl_model']['iou']['mean']:.4f}\")
+    if 'vl_model' in results:
+        print(f\"  VL Model Dice:     {results['vl_model']['dice']['mean']:.4f}\")
+        print(f\"  VL Model IoU:      {results['vl_model']['iou']['mean']:.4f}\")
     
-#     if 'vision_only' in results:
-#         print(f\"  Vision-Only Dice:  {results['vision_only']['dice']['mean']:.4f}\")
-#         print(f\"  Vision-Only IoU:   {results['vision_only']['iou']['mean']:.4f}\")
+    if 'vision_only' in results:
+        print(f\"  Vision-Only Dice:  {results['vision_only']['dice']['mean']:.4f}\")
+        print(f\"  Vision-Only IoU:   {results['vision_only']['iou']['mean']:.4f}\")
     
-#     if 'improvement' in results:
-#         print(f\"\\n  Improvement (Dice): +{results['improvement']['dice']:.4f}\")
-#         print(f\"  Improvement (IoU):  +{results['improvement']['iou']:.4f}\")
+    if 'improvement' in results:
+        print(f\"\\n  Improvement (Dice): +{results['improvement']['dice']:.4f}\")
+        print(f\"  Improvement (IoU):  +{results['improvement']['iou']:.4f}\")
 
-# print('\\n' + '='*60)
-# print('Results saved to: $RESULTS_DIR/')
-# print('='*60)
-# "
+print('\\n' + '='*60)
+print('Results saved to: $RESULTS_DIR/')
+print('='*60)
+"
 
-# echo ""
-# echo "=============================================="
-# echo "ALL EXPERIMENTS COMPLETE!"
-# echo "=============================================="
-# echo ""
-# echo "Results location: $RESULTS_DIR/"
-# echo ""
-# echo "Generated outputs:"
-# echo "  - $RESULTS_DIR/sun_full/evaluation_results.json"
-# echo "  - $RESULTS_DIR/sun_full/plots/"
-# echo "  - $RESULTS_DIR/sun_full/uncertainty_maps/"
-# echo "  - $RESULTS_DIR/ablations/"
-# echo "  - $RESULTS_DIR/benchmarks/ (if benchmark data available)"
-# echo ""
-# echo "Next steps:"
-# echo "  1. Review results in $RESULTS_DIR/"
-# echo "  2. Generate paper figures: python scripts/generate_figures.py"
-# echo "  3. Write your paper!"
-# echo ""
+echo ""
+echo "=============================================="
+echo "ALL EXPERIMENTS COMPLETE!"
+echo "=============================================="
+echo ""
+echo "Results location: $RESULTS_DIR/"
+echo ""
+echo "Generated outputs:"
+echo "  - $RESULTS_DIR/sun_full/evaluation_results.json"
+echo "  - $RESULTS_DIR/sun_full/plots/"
+echo "  - $RESULTS_DIR/sun_full/uncertainty_maps/"
+echo "  - $RESULTS_DIR/ablations/"
+echo "  - $RESULTS_DIR/benchmarks/ (if benchmark data available)"
+echo ""
+echo "Next steps:"
+echo "  1. Review results in $RESULTS_DIR/"
+echo "  2. Generate paper figures: python scripts/generate_figures.py"
+echo "  3. Write your paper!"
+echo ""

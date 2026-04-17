@@ -1,0 +1,178 @@
+\documentclass{thesisclass}
+% Based on thesisclass.cls of Timo Rohrberg, 2009
+% ----------------------------------------------------------------
+% Thesis - Main document
+% ----------------------------------------------------------------
+
+\usepackage{listings}
+\usepackage{acronym}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{xspace}
+
+%% -------------------------------
+%% |  Information for PDF file   |
+%% -------------------------------
+\hypersetup{
+ pdfauthor={Author Name},
+ pdftitle={Vision-Language Polyp Segmentation with Uncertainty Estimation},
+ pdfsubject={Praktikum Report},
+ pdfkeywords={polyp segmentation, vision-language, uncertainty estimation, medical imaging}
+}
+
+
+%% -------------------------------
+%% |   New Title Page Info       |
+%% -------------------------------
+
+\newcommand{\docType}{Praktikum Report}
+\newcommand{\mainTitle}{Vision-Language Polyp Segmentation with Uncertainty Estimation}
+
+\newcommand{\authorName}{[Your Name]}
+
+\newcommand{\reviewerOneName}{Prof.\ Dr.\ Radu Timofte}
+\newcommand{\reviewerOneTask}{Supervisor}
+
+\newcommand{\advisorOneName}{[Advisor Name]}
+\newcommand{\advisorOneTask}{Advisor}
+
+% Comment out if only one advisor
+%\newcommand{\advisorTwoName}{Name Advisor 2}
+%\newcommand{\advisorTwoTask}{Second Advisor}
+
+\newcommand{\submissionTime}{March 2026}
+
+%% -------------------------------
+%% | Information for Declaration |
+%% -------------------------------
+\newcommand{\place}{W\"urzburg}
+
+%% ---------------------------------
+%% | ToDo Marker - only for draft! |
+%% ---------------------------------
+\setlength{\marginparwidth}{20mm}
+
+\newcommand{\margtodo}
+{\marginpar{\textbf{\textcolor{red}{ToDo}}}{}}
+
+\newcommand{\todo}[1]
+{{\textbf{\textcolor{red}{(\margtodo{}#1)}}}{}}
+
+
+%% --------------------------------
+%% | Old Marker - only for draft! |
+%% --------------------------------
+\newenvironment{deprecated}
+{\begin{color}{gray}}
+{\end{color}}
+
+
+%% --------------------------------
+%% | Settings for word separation |
+%% --------------------------------
+\hyphenation{
+Seg-men-ta-tion
+Pub-Med-BERT
+cross-at-ten-tion
+}
+
+%% --------------------------------
+%% |   Listings configuration     |
+%% --------------------------------
+\lstset{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue}\bfseries,
+  commentstyle=\color{green!50!black},
+  stringstyle=\color{red!60!black},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  frame=single,
+  breaklines=true,
+  captionpos=b,
+  tabsize=4
+}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Here, main documents begins %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{document}
+
+% Remove the following line for German text
+\selectlanguage{english}
+
+\frontmatter
+\pagenumbering{roman}
+\include{titlepage}
+% reset margins to standard for text
+\setmarginsrb{3cm}{1cm}{3cm}{1cm}{6mm}{7mm}{5mm}{15mm}
+\blankpage
+\include{abstract}
+
+\include{acknowledgements}
+
+%% -------------------
+%% |   Directories   |
+%% -------------------
+\setcounter{tocdepth}{2}
+\tableofcontents
+\blankpage
+
+
+%% -----------------
+%% |   Main part   |
+%% -----------------
+\mainmatter
+\pagenumbering{arabic}
+\include{introduction}
+\include{background}
+\include{relatedwork}
+\include{approach}
+\include{implementation}
+\include{evaluation}
+\include{conclusion}
+
+
+%% ----------------
+%% |   Listings   |
+%% ----------------
+
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{\listfigurename}
+\listoffigures
+
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{\listtablename}
+\listoftables
+
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{\lstlistlistingname}
+\lstlistoflistings
+
+\include{acronyms}
+
+
+%% --------------------
+%% |   Bibliography   |
+%% --------------------
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{\bibname}
+
+\bibliographystyle{ieeetr}
+\bibliography{thesis}
+
+
+%% ----------------
+%% |   Appendix   |
+%% ----------------
+\cleardoublepage
+\input{appendix}
+
+
+\end{document}

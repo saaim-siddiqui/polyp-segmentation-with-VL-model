@@ -1,0 +1,123 @@
+\begin{titlepage}
+
+\setmarginsrb{0mm}{0mm}{0mm}{0mm}{0mm}{0mm}{0mm}{0mm}
+
+
+\begin{tikzpicture}[remember picture,overlay]
+    \node [inner sep=0pt] (background_img) at (15, -17) {\includegraphics[width=38cm]{logos/Marienberg_wuerzburg_verlauf.png}};
+    \node [fill=white, minimum width=133mm, minimum height=600mm] (box) at (current page.north west){};
+    \node [inner sep=0pt] (uniwuelogo) at (12.98,-5) {\includegraphics[width=\paperwidth]{logos/unilogo4c_gross.png}};
+\end{tikzpicture}
+
+\pagecolor{background}
+
+\begin{textblock*}{170mm}(80mm,45mm)
+    \noindent
+    \renewcommand{\baselinestretch}{1.5}
+    \huge\textsf{\textcolor{titlecolor}{\docType}}
+\end{textblock*}
+
+% Title
+\begin{textblock*}{130mm}(80mm,95mm)
+    \noindent
+    \Huge\textsf{\textbf{\textcolor{titlecolor}{\mainTitle}}}
+\end{textblock*}
+
+
+% First author
+\begin{textblock*}{120mm}(80mm,175mm)
+    \noindent
+    \LARGE\textsf{\textcolor{titlecolor}{
+    \textbf{\authorName}\\
+    \Large\authorChair\\
+    \authorDepartment\\
+    \authorAssociation\\
+    }}
+\end{textblock*}
+
+\ifdefined\advisorTwoName
+	% case 1: one reviewer and two advisor
+	% First reviewer
+\begin{textblock*}{120mm}(80mm,220mm)
+	\noindent
+	\large\textsf{\textcolor{titlecolor}{
+			\textbf{\reviewerOneName} \\
+			\reviewerOneTask
+	}}
+\end{textblock*}
+
+
+% First advisor
+\begin{textblock*}{120mm}(80mm,235mm)
+	\noindent
+	\large\textsf{\textcolor{titlecolor}{
+			\textbf{\advisorOneName} \\
+			\advisorOneTask
+	}}
+\end{textblock*}
+
+% second advisor
+\begin{textblock*}{120mm}(80mm,250mm)
+	\noindent
+	\large\textsf{\textcolor{titlecolor}{
+			\textbf{\advisorTwoName} \\
+			\advisorTwoTask
+	}}
+\end{textblock*}
+
+\ifdefined\advisorExtName
+	% external advisor
+	\begin{textblock*}{120mm}(80mm,265mm)
+		\noindent
+		\large\textsf{\textcolor{titlecolor}{
+			\textbf{\advisorExtName} \\
+			\advisorExtTask
+		}}
+	\end{textblock*}
+\fi	
+	
+\else
+	% case 2: one reviewer and one advisor
+		% First reviewer
+	\begin{textblock*}{120mm}(80mm,220mm)
+		\noindent
+		\large\textsf{\textcolor{titlecolor}{
+				\textbf{\reviewerOneName} \\
+				\reviewerOneTask
+		}}
+	\end{textblock*}
+	
+	% First advisor
+	\begin{textblock*}{120mm}(80mm,235mm)
+		\noindent
+		\large\textsf{\textcolor{titlecolor}{
+				\textbf{\advisorOneName} \\
+				\advisorOneTask
+		}}
+	\end{textblock*}
+\ifdefined\advisorExtName
+	% external advisor
+	\begin{textblock*}{120mm}(80mm,250mm)
+		\noindent
+		\large\textsf{\textcolor{titlecolor}{
+			\textbf{\advisorExtName} \\
+			\advisorExtTask
+		}}
+	\end{textblock*}
+\fi
+\fi
+% Date
+\begin{textblock*}{60mm}(80mm,305mm)
+    \noindent
+    \large\textsf{\textcolor{titlecolor}{\textbf{Submission\\}\submissionTime}}
+\end{textblock*}
+
+% Webadress
+\begin{textblock*}{110mm}(115mm,311mm)
+    \noindent
+    \hfill\large\textsf{\textcolor{titlecolor}{\textbf{\webadress}}}
+\end{textblock*}
+
+\end{titlepage}
+
+\nopagecolor

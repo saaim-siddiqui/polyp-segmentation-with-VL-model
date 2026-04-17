@@ -1,0 +1,127 @@
+%!TEX root = thesis.tex
+
+\chapter{Background}
+\label{ch:background}
+
+This chapter provides the foundational concepts necessary to understand the proposed \ac{VL} segmentation framework.
+
+\section{Medical Image Segmentation}
+\label{sec:bg:medseg}
+
+Medical image segmentation is the task of assigning a class label to each pixel in a medical image, producing a spatial map that delineates anatomical structures or pathological regions. In the context of colonoscopy, the goal is to produce a binary mask that separates polyp tissue from healthy mucosa.
+
+\subsection{U-Net Architecture}
+\label{sec:bg:unet}
+
+The U-Net architecture~\cite{ronneberger2015unet} is the most widely adopted model for biomedical image segmentation. It follows an encoder-decoder structure with skip connections that propagate fine-grained spatial information from early encoder stages to the corresponding decoder stages. The encoder progressively reduces spatial resolution while increasing feature depth, capturing semantic context. The decoder upsamples features back to the input resolution, using skip connections to recover spatial detail lost during downsampling.
+
+Formally, given an input image $\mathbf{x} \in \mathbb{R}^{H \times W \times 3}$, the encoder produces a hierarchy of feature maps $\{f_1, f_2, \ldots, f_L\}$ at $L$ resolution levels. The decoder reconstructs the segmentation mask $\hat{y} \in [0,1]^{H \times W}$ by progressively upsampling and fusing features:
+\begin{equation}
+	d_l = \text{Up}(d_{l+1}) + f_l, \quad l = L-1, \ldots, 1
+\end{equation}
+where $\text{Up}(\cdot)$ denotes bilinear upsampling followed by convolution.
+
+\subsection{Residual Networks}
+\label{sec:bg:resnet}
+
+\ac{ResNet}~\cite{he2016deep} introduces skip (residual) connections that enable training of very deep networks by mitigating the vanishing gradient problem. A residual block computes:
+\begin{equation}
+	\mathbf{y} = \mathcal{F}(\mathbf{x}, \{W_i\}) + \mathbf{x}
+\end{equation}
+where $\mathcal{F}$ represents the residual mapping (typically two or three convolutional layers) and the identity shortcut $\mathbf{x}$ allows gradients to flow directly through the network. In our work, we use ResNet-34 pretrained on ImageNet~\cite{deng2009imagenet} as the vision encoder backbone.
+
+
+\section{Vision-Language Models}
+\label{sec:bg:vlmodels}
+
+\ac{VL} models learn joint representations from visual and textual inputs. The key insight is that language provides a complementary source of semantic information that can guide visual processing~\cite{radford2021clip}.
+
+\subsection{Text Encoders for Medical Imaging}
+\label{sec:bg:textenc}
+
+Transformer-based language models pretrained on biomedical corpora capture domain-specific semantics that generic models may miss. \ac{PubMedBERT}~\cite{gu2021pubmedbert} is pretrained from scratch on PubMed abstracts using both masked language modeling and next-sentence prediction. This domain-specific pretraining enables the model to understand medical terminology, anatomical references, and clinical descriptions more accurately than general-purpose language models like BERT~\cite{devlin2019bert}.
+
+Given a tokenized input sequence $\mathbf{t} = [t_1, t_2, \ldots, t_N]$, PubMedBERT produces contextual embeddings $\mathbf{H} \in \mathbb{R}^{N \times 768}$ and a pooled representation $\mathbf{h}_{\text{cls}} \in \mathbb{R}^{768}$ from the \texttt{[CLS]} token.
+
+\subsection{Vision-Language Fusion}
+\label{sec:bg:fusion}
+
+Fusing visual and textual representations is a central challenge in \ac{VL} models. Several strategies exist:
+
+\begin{itemize}
+	\item \textbf{Concatenation}: Features from both modalities are concatenated along the channel dimension, relying on subsequent layers to learn cross-modal interactions.
+	
+	\item \textbf{\ac{FiLM}}~\cite{perez2018film}: Text features modulate visual features through learned affine transformations $\gamma$ and $\beta$:
+	\begin{equation}
+		\text{FiLM}(\mathbf{v} \mid \mathbf{t}) = \gamma(\mathbf{t}) \odot \mathbf{v} + \beta(\mathbf{t})
+	\end{equation}
+	
+	\item \textbf{Cross-Attention}: Allows spatial regions in the visual feature map to selectively attend to relevant parts of the text representation~\cite{vaswani2017attention}:
+	\begin{equation}
+		\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^\top}{\sqrt{d_k}}\right) V
+	\end{equation}
+	where queries $Q$ derive from visual features and keys/values $K, V$ from text features (or vice versa). This is the primary fusion mechanism used in our work.
+\end{itemize}
+
+
+\section{Uncertainty Estimation in Deep Learning}
+\label{sec:bg:uncertainty}
+
+Reliable uncertainty quantification is essential for deploying deep learning models in safety-critical medical applications. Two primary types of uncertainty are commonly distinguished~\cite{kendall2017uncertainties}:
+
+\begin{itemize}
+	\item \textbf{Aleatoric uncertainty} arises from inherent noise in the data (e.g., ambiguous boundaries, imaging artifacts) and cannot be reduced by collecting more data.
+	\item \textbf{Epistemic uncertainty} results from limited training data or model capacity and can, in principle, be reduced with additional data or larger models.
+\end{itemize}
+
+\subsection{Monte Carlo Dropout}
+\label{sec:bg:mcdropout}
+
+\ac{MC} Dropout~\cite{gal2016dropout} provides a practical approximation to Bayesian inference by performing $T$ stochastic forward passes with dropout active at test time. Given an input $\mathbf{x}$, each forward pass $t$ yields a prediction $\hat{y}_t(\mathbf{x})$ with a different dropout mask. The predictive mean and uncertainty are computed as:
+
+\begin{equation}
+	\bar{y}(\mathbf{x}) = \frac{1}{T} \sum_{t=1}^{T} \hat{y}_t(\mathbf{x})
+\end{equation}
+
+\begin{equation}
+	\text{Var}(\mathbf{x}) = \frac{1}{T} \sum_{t=1}^{T} \left(\hat{y}_t(\mathbf{x}) - \bar{y}(\mathbf{x})\right)^2
+\end{equation}
+
+The predictive entropy provides an alternative uncertainty measure:
+\begin{equation}
+	\mathcal{H}(\mathbf{x}) = -\bar{y} \log \bar{y} - (1 - \bar{y}) \log (1 - \bar{y})
+\end{equation}
+
+In our system, we use $T = 10$ \ac{MC} samples with a dropout probability of $p = 0.1$, applied via spatial dropout (\texttt{Dropout2d}) to preserve spatial correlations in the feature maps.
+
+
+\section{Loss Functions for Segmentation}
+\label{sec:bg:loss}
+
+\subsection{Binary Cross-Entropy Loss}
+\label{sec:bg:bce}
+
+The \ac{BCE} loss measures the pixel-wise discrepancy between predicted probabilities and ground truth:
+\begin{equation}
+	\mathcal{L}_{\text{BCE}} = -\frac{1}{|\Omega|} \sum_{i \in \Omega} \left[ y_i \log \hat{y}_i + (1 - y_i) \log(1 - \hat{y}_i) \right]
+\end{equation}
+where $\Omega$ is the set of all pixels, $y_i \in \{0, 1\}$ is the ground truth, and $\hat{y}_i \in [0, 1]$ is the predicted probability.
+
+\subsection{Dice Loss}
+\label{sec:bg:dice}
+
+The Dice loss directly optimizes the \ac{DSC}, which is particularly effective for imbalanced segmentation tasks:
+\begin{equation}
+	\mathcal{L}_{\text{Dice}} = 1 - \frac{2 \sum_{i} y_i \hat{y}_i + \epsilon}{\sum_{i} y_i + \sum_{i} \hat{y}_i + \epsilon}
+\end{equation}
+where $\epsilon$ is a smoothing constant to prevent division by zero.
+
+\subsection{Combined Loss}
+\label{sec:bg:combined}
+
+Our system uses a weighted combination of both losses:
+\begin{equation}
+	\mathcal{L} = \alpha \cdot \mathcal{L}_{\text{BCE}} + (1 - \alpha) \cdot \mathcal{L}_{\text{Dice}}
+	\label{eq:combined_loss}
+\end{equation}
+with $\alpha = 0.5$ by default. This combination benefits from BCE's pixel-level supervision and Dice's region-level optimization, balancing sensitivity to individual pixels with overall shape accuracy.
