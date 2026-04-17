@@ -324,10 +324,14 @@ class Trainer:
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
             'best_dice': self.best_dice,
+            'patience_counter': self.patience_counter,
             'config': self.config.__dict__,
             'history': self.history,
         }
         
+        if self.scheduler is not None:
+            checkpoint['scheduler_state_dict'] = self.scheduler.state_dict()
+
         # Save latest
         latest_path = self.checkpoint_dir / "latest.pt"
         torch.save(checkpoint, latest_path)
@@ -343,18 +347,21 @@ class Trainer:
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        if self.scheduler is not None and 'scheduler_state_dict' in checkpoint:
+            self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
         self.best_dice = checkpoint.get('best_dice', 0.0)
+        self.patience_counter = checkpoint.get('patience_counter', 0)
         self.history = checkpoint.get('history', self.history)
-        return checkpoint.get('epoch', 0)
+        return checkpoint.get('epoch', 0) + 1
     
-    def train(self):
+    def train(self, start_epoch: int = 0):
         """Full training loop."""
         print(f"\n{'='*60}")
         print(f"Training: {self.config.experiment.name}")
         print(f"Device: {self.device}")
         print(f"{'='*60}\n")
         
-        for epoch in range(self.config.training.num_epochs):
+        for epoch in range(start_epoch, self.config.training.num_epochs):
             # Train
             train_loss = self.train_epoch(epoch)
             
@@ -469,12 +476,13 @@ def train_model(
     )
     
     # Resume if specified
+    start_epoch = 0
     if resume_from is not None:
         start_epoch = trainer.load_checkpoint(resume_from)
-        print(f"Resumed from epoch {start_epoch}")
+        print(f"Resuming from epoch {start_epoch}")
     
     # Train
-    history = trainer.train()
+    history = trainer.train(start_epoch=start_epoch)
     
     return history
 
