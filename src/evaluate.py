@@ -17,7 +17,7 @@ import seaborn as sns
 
 from .config import Config, get_config
 from .models import create_model, VLSegmentationModel, VisionOnlyModel, UncertaintyEstimator
-from .data import create_dataloaders
+from .data import create_sun_dataloaders as create_dataloaders
 from .metrics import UncertaintyMetricsCalculator
 
 

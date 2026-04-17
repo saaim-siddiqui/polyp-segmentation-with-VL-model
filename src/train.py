@@ -496,7 +496,8 @@ if __name__ == "__main__":
     parser.add_argument("--data_root", type=str, required=True, help="Path to data directory")
     parser.add_argument("--experiment", type=str, default="full", 
                        choices=["vision_only", "full", "text_shape_only", 
-                               "text_size_only", "text_boundary_only", "text_location_only"],
+                               "text_size_only", "text_boundary_only", "text_location_only",
+                               "text_pathology_only"],
                        help="Experiment configuration")
     parser.add_argument("--epochs", type=int, default=None, help="Number of epochs")
     parser.add_argument("--batch_size", type=int, default=None, help="Batch size")

@@ -423,6 +423,29 @@ class VisionOnlyModel(nn.Module):
             'probs': torch.sigmoid(logits),
         }
     
+    def predict_with_uncertainty(
+        self,
+        images: torch.Tensor,
+    ) -> Dict[str, torch.Tensor]:
+        """Predict with uncertainty estimation using MC Dropout."""
+        class ModelWrapper(nn.Module):
+            def __init__(self, model):
+                super().__init__()
+                self.model = model
+
+            def forward(self, images, **kwargs):
+                outputs = self.model(images)
+                return outputs['logits']
+
+            def enable_mc_dropout(self):
+                self.model.decoder.enable_mc_dropout()
+
+            def disable_mc_dropout(self):
+                self.model.decoder.disable_mc_dropout()
+
+        wrapper = ModelWrapper(self)
+        return self.uncertainty_estimator.estimate_uncertainty(wrapper, images)
+
     def enable_mc_dropout(self):
         self.decoder.enable_mc_dropout()
     

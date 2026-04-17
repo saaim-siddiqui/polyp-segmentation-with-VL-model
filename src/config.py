@@ -215,6 +215,10 @@ def get_config(experiment_name: str = "default") -> Config:
         config.experiment.name = "ablation_location"
         config.experiment.text_attributes = ["location"]
         
+    elif experiment_name == "text_pathology_only":
+        config.experiment.name = "ablation_pathology"
+        config.experiment.text_attributes = ["pathology"]
+        
     elif experiment_name == "full":
         config.experiment.name = "full_vl_model"
         # Default settings, all attributes
@@ -229,5 +233,6 @@ ABLATION_EXPERIMENTS = [
     "text_size_only",
     "text_boundary_only",
     "text_location_only",
+    "text_pathology_only",
     "full"
 ]
